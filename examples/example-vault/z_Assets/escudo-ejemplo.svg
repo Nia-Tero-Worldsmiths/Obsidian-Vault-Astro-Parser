@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 72" width="64" height="72">
+  <title>Escudo de Puerto Ejemplo</title>
+  <path d="M32 2 60 12v28c0 16-12 26-28 30C16 66 4 56 4 40V12z"
+        fill="#f6e3cd" stroke="#c14343" stroke-width="3"/>
+  <path d="M32 20v28M20 34h24" stroke="#c14343" stroke-width="4"
+        stroke-linecap="round"/>
+</svg>

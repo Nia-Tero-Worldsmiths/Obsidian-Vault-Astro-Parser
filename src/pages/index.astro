@@ -1,17 +1,72 @@
 ---
+/**
+ * Provisional index.
+ *
+ * A flat listing of everything the parser emitted, grouped by collection.
+ * This is a verification aid, not the real navigation -- Module 7 generates
+ * the folder-note-aware tree that replaces it and that will live in the
+ * sidebar on every page.
+ */
+import { getCollection } from "astro:content";
+import BaseLayout from "../layouts/BaseLayout.astro";
 
+const collections = ["atlas", "encyclopedia", "prosa"] as const;
+
+const groups = await Promise.all(
+  collections.map(async (name) => ({
+    name,
+    entries: (await getCollection(name)).sort((a, b) =>
+      a.data.title.localeCompare(b.data.title, "es"),
+    ),
+  })),
+);
+
+const total = groups.reduce((sum, group) => sum + group.entries.length, 0);
 ---
 
-<html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<link rel="icon" href="/favicon.ico" />
-		<meta name="viewport" content="width=device-width" />
-		<meta name="generator" content={Astro.generator} />
-		<title>Astro</title>
-	</head>
-	<body>
-		<h1>Astro</h1>
-	</body>
-</html>
+<BaseLayout title="Nia Tero Exxet">
+  <h1>Nia Tero Exxet</h1>
+  <p>{total} notas publicadas desde el vault.</p>
+
+  {
+    groups.map((group) => (
+      <section>
+        <h2>
+          {group.name} <small>({group.entries.length})</small>
+        </h2>
+        <ul>
+          {group.entries.map((entry) => (
+            <li>
+              <a href={`/${entry.data.slug}`}>{entry.data.title}</a>
+              {entry.data.breadcrumb.length > 0 && (
+                <span class="path"> — {entry.data.breadcrumb.join(" / ")}</span>
+              )}
+            </li>
+          ))}
+        </ul>
+      </section>
+    ))
+  }
+</BaseLayout>
+
+<style>
+  h2 {
+    text-transform: capitalize;
+    margin-top: 2rem;
+  }
+
+  ul {
+    list-style: none;
+    padding: 0;
+  }
+
+  li {
+    padding: 0.2rem 0;
+    border-bottom: 1px solid #f0f0f0;
+  }
+
+  .path {
+    color: #999;
+    font-size: 0.8rem;
+  }
+</style>

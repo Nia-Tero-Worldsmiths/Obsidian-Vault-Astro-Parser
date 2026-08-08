@@ -1,0 +1,141 @@
+/* Pan-and-zoom maps, rendered by the parser's Module 8.
+ *
+ * The plugin draws to a canvas; this uses ordinary DOM so the pins stay real
+ * links -- crawlable, focusable, and usable without JavaScript. With JS off the
+ * map degrades to a static image with its markers still in the right places.
+ */
+
+.zoommap {
+  position: relative;
+  margin: 1.5rem 0;
+  border: 1px solid var(--background-modifier-border, #ddd);
+  border-radius: var(--radius-m, 8px);
+  background: var(--background-secondary, #f3f3f3);
+  overflow: hidden;
+}
+
+.zoommap-viewport {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+}
+
+.zoommap-viewport.is-panning {
+  cursor: grabbing;
+}
+
+/* Sized in the image's natural pixels by the parser, so `--zm-scale` means the
+   same thing it does in the plugin: 1 is 100% of the source image. */
+.zoommap-world {
+  position: relative;
+  transform-origin: 0 0;
+  /* Set by the script; the default keeps the map usable before it runs. */
+  transform: translate(var(--zm-x, 0px), var(--zm-y, 0px)) scale(var(--zm-scale, 1));
+}
+
+.zoommap-base {
+  display: block;
+  width: 100%;
+  height: auto;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* Pins sit at a percentage of the image, so they track the terrain as the
+   world is transformed. The counter-scale keeps the icon a constant size on
+   screen instead of growing to fill the map at 8x. */
+.zoommap-pin {
+  position: absolute;
+  display: block;
+  width: var(--zm-size, 24px);
+  height: var(--zm-size, 24px);
+  transform-origin: var(--zm-ax, 12px) var(--zm-ay, 12px);
+  transform: translate(calc(var(--zm-ax, 12px) * -1), calc(var(--zm-ay, 12px) * -1))
+    scale(var(--zm-inv, 1));
+  text-decoration: none;
+  line-height: 0;
+}
+
+.zoommap-icon {
+  width: 100%;
+  height: 100%;
+  display: block;
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 45%));
+}
+
+.zoommap-dot {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: var(--color-red, #e93147);
+  border: 2px solid #fff;
+}
+
+.zoommap-pin.is-unpublished .zoommap-icon {
+  opacity: 0.55;
+}
+
+/* The label rides along with the pin but is only revealed on hover/focus, so
+   eight of them do not crowd the map. */
+.zoommap-label {
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  transform: translateX(-50%);
+  margin-top: 2px;
+  padding: 1px 6px;
+  border-radius: var(--radius-s, 4px);
+  background: var(--background-primary, #fff);
+  color: var(--text-normal, #222);
+  border: 1px solid var(--background-modifier-border, #ddd);
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease;
+}
+
+.zoommap-pin:hover .zoommap-label,
+.zoommap-pin:focus-visible .zoommap-label {
+  opacity: 1;
+}
+
+.zoommap-pin:focus-visible {
+  outline: 2px solid var(--text-accent, #a33);
+  outline-offset: 2px;
+}
+
+.zoommap-controls {
+  position: absolute;
+  right: 0.5rem;
+  bottom: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.zoommap-btn {
+  width: 28px;
+  height: 28px;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  border: 1px solid var(--background-modifier-border, #ddd);
+  border-radius: var(--radius-s, 4px);
+  background: var(--background-primary, #fff);
+  color: var(--text-normal, #222);
+}
+
+.zoommap-btn:hover {
+  background: var(--background-modifier-hover, #eee);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .zoommap-label {
+    transition: none;
+  }
+}

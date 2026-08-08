@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <title>Stand-in for a third-party image</title>
+  <!-- Marked `origin: external` in CREDITS.yaml, so the parser never copies
+       this file. It exists only to prove that the block happens. -->
+  <circle cx="32" cy="24" r="12" fill="#697580"/>
+  <path d="M8 62c0-13 11-22 24-22s24 9 24 22z" fill="#697580"/>
+</svg>

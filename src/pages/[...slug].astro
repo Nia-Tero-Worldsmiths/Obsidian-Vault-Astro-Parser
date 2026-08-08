@@ -1,0 +1,39 @@
+---
+/**
+ * One dynamic route for every vault note.
+ *
+ * URLs are flat (`/moby-tourmaline`) because that is how Obsidian wikilinks
+ * resolve -- by name, not by path. The vault's folder hierarchy is preserved
+ * in each note's `breadcrumb` and drives navigation instead of the URL.
+ */
+import { getCollection, render } from "astro:content";
+import BaseLayout from "../layouts/BaseLayout.astro";
+
+export async function getStaticPaths() {
+  const collections = ["atlas", "encyclopedia", "prosa"] as const;
+
+  const entries = (
+    await Promise.all(collections.map((name) => getCollection(name)))
+  ).flat();
+
+  return entries.map((entry) => ({
+    params: { slug: entry.data.slug },
+    props: { entry },
+  }));
+}
+
+const { entry } = Astro.props;
+const { Content } = await render(entry);
+---
+
+<BaseLayout
+  title={entry.data.title}
+  breadcrumb={entry.data.breadcrumb}
+  currentSlug={entry.data.slug}
+  cssclasses={entry.data.cssclasses}
+>
+  <article>
+    <h1>{entry.data.title}</h1>
+    <Content />
+  </article>
+</BaseLayout>

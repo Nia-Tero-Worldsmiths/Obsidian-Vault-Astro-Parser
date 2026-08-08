@@ -1,0 +1,165 @@
+/* Link graph, rendered by src/components/GraphView.astro from Module 9 data.
+ *
+ * Two modes: `.is-compact` is the sidebar widget, the plain form is the full
+ * page. Colours come from the vault's own `.obsidian/graph.json` groups and are
+ * set per-node as inline `fill`, so only the neutral defaults live here.
+ */
+
+.graph {
+  position: relative;
+  margin: 0;
+  border: 1px solid var(--background-modifier-border, #ddd);
+  border-radius: var(--radius-m, 8px);
+  background: var(--background-secondary, #f6f2ea);
+  overflow: hidden;
+}
+
+.graph-canvas {
+  width: 100%;
+  height: 100%;
+}
+
+.graph-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+  touch-action: none;
+}
+
+.graph-svg.is-panning {
+  cursor: grabbing;
+}
+
+/* Counter-scaled like the node radii, so edges stay hairlines however far the
+   view is zoomed to fit. */
+.graph-edge {
+  stroke: var(--text-faint, #b9aba0);
+  stroke-opacity: 0.5;
+  stroke-width: calc(1px * var(--graph-inv, 1));
+}
+
+/* `:not([fill])` is load-bearing. A `fill` *presentation attribute* has lower
+   priority than any CSS rule, so an unscoped `fill` here would silently
+   override every per-node colour the parser wrote from the vault's colour
+   groups -- the same trap as HTML width/height attributes on images. */
+.graph-node circle {
+  stroke: var(--background-primary, #fff9f0);
+  stroke-width: 1;
+  transition: stroke 0.12s ease;
+}
+
+.graph-node circle:not([fill]) {
+  fill: var(--text-muted, #8a7d75);
+}
+
+.graph-node:hover circle,
+.graph-node:focus-visible circle {
+  stroke: var(--text-accent, #d63636);
+  stroke-width: 2;
+}
+
+.graph-node:focus-visible {
+  outline: none;
+}
+
+/* Labels are counter-scaled so they stay readable at any zoom, and revealed on
+   hover so 40 of them do not overlap into noise. */
+.graph-label {
+  font-size: 9px;
+  fill: var(--text-normal, #412f2f);
+  text-anchor: middle;
+  paint-order: stroke;
+  stroke: var(--background-secondary, #f6f2ea);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(var(--graph-inv, 1));
+  transform-origin: center;
+  transition: opacity 0.12s ease;
+}
+
+.graph-node:hover .graph-label,
+.graph-node:focus-visible .graph-label {
+  opacity: 1;
+}
+
+/* --- sidebar widget --- */
+
+.graph.is-compact {
+  margin-top: 1.25rem;
+  height: 190px;
+  display: flex;
+  flex-direction: column;
+}
+
+.graph.is-compact .graph-canvas {
+  flex: 1;
+  min-height: 0;
+}
+
+.graph.is-compact .graph-svg {
+  cursor: pointer;
+}
+
+.graph-title {
+  order: -1;
+  padding: 0.35rem 0.6rem;
+  border-bottom: 1px solid var(--background-modifier-border, #ddd);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.graph-title a {
+  color: var(--text-muted, #8a7d75);
+  text-decoration: none;
+}
+
+.graph-title a:hover {
+  color: var(--text-accent, #d63636);
+}
+
+.graph-count {
+  float: right;
+  font-weight: 400;
+  opacity: 0.7;
+}
+
+/* --- full page --- */
+
+.graph:not(.is-compact) {
+  height: min(72vh, 720px);
+}
+
+.graph-controls {
+  position: absolute;
+  right: 0.5rem;
+  bottom: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.graph-btn {
+  width: 28px;
+  height: 28px;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  border: 1px solid var(--background-modifier-border, #ddd);
+  border-radius: var(--radius-s, 4px);
+  background: var(--background-primary, #fff9f0);
+  color: var(--text-normal, #412f2f);
+}
+
+.graph-btn:hover {
+  background: var(--background-modifier-hover, #efe7db);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .graph-label,
+  .graph-node circle {
+    transition: none;
+  }
+}

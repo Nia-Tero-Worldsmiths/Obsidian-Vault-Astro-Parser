@@ -1,0 +1,106 @@
+# Obsidian -> Astro vault parser configuration.
+#
+# Copy this file to `vault.config.yaml` and set `vault_root`. That copy is not
+# committed: it is the one place the pipeline is tied to a particular machine.
+#
+# Paths are relative to this file (the project root) unless absolute.
+# The vault is READ-ONLY. The parser refuses to open it for writing and
+# refuses to emit anything inside it.
+
+# Source vault. Absolute, or relative to this file. The parser resolves
+# symlinks before use, so either form works; an absolute path avoids depending
+# on a symlink existing inside the project at all.
+#
+# This is the only thing tying the parser to one particular vault -- point it
+# somewhere else and the whole pipeline runs against that vault instead.
+vault_root: C:/Users/you/Vaults/My Vault
+
+# Output destinations. `--clean` only ever touches these three.
+output:
+  content: src/content # markdown, one dir per collection
+  generated: src/generated # sidecar JSON (nav tree, graph)
+  assets: public/vault-assets # copied images
+
+# Public URL prefix under which `assets` is served.
+asset_base_url: /vault-assets
+
+# Top-level vault folder -> Astro collection name.
+# Anything not listed here is ignored.
+collections:
+  World Atlas: atlas
+  World Encyclopedia: encyclopedia
+  Prosa: prosa
+
+# Vault-relative directory names never descended into, at any depth.
+ignore_dirs:
+  - .obsidian
+  - .git
+  - .trash
+  - z_Templates
+  - z_Assets
+  - ZoomMap
+
+# Glob patterns (matched against each path segment) that are skipped.
+# `_*` is this vault's own spoiler convention.
+ignore_globs:
+  - _*
+
+# Publish gate.
+#   default_publish: false -> opt-in. A note needs `publish: true` to be emitted.
+#   default_publish: true  -> opt-out. Everything is emitted unless `publish: false`.
+# Flip to true for a full local preview of the vault.
+default_publish: false
+
+# The run report lists notes whose frontmatter never decides `publish` either
+# way, as a data-hygiene check. Notes with fewer than this many non-blank body
+# lines are treated as unstarted stubs and left out of that list, as are notes
+# with no frontmatter at all.
+publish_hint_min_lines: 4
+
+# Image extensions treated as assets and copied to `output.assets`.
+asset_extensions:
+  - .png
+  - .jpg
+  - .jpeg
+  - .webp
+  - .gif
+  - .svg
+
+# Directories under the vault whose images are vendored libraries, not content.
+# Never copied even when referenced.
+asset_exclude_dirs:
+  - z_Assets/Icons
+
+# Transform modules, in pipeline order. Module 1 (ingest) is the core and is
+# not listed here; it always runs. Order matters where noted.
+modules:
+  # Must stay first: Obsidian strips comments before parsing block structure,
+  # so a `%%comment%%` inside a callout would otherwise split the block.
+  comments: { enabled: true }
+  links: { enabled: true }
+  inline_dataview: { enabled: true }
+  callouts: { enabled: true }
+  # Inline tags become Obsidian-style pills. `hidden_tags` are dropped instead:
+  # they are notes-to-self about the writing, not content.
+  cleanup:
+    enabled: true
+    hidden_tags: [WIP, Borrar, Cambiar, TODO]
+  dataview_queries: { enabled: true }
+  nav_tree: { enabled: true }
+  zoommap: { enabled: true }
+  # Removes headings with nothing under them (the unfilled skeleton left by the
+  # note templates). Recursive: a heading counts as empty only when every
+  # heading nested beneath it is empty too. Runs after the query and map
+  # modules so it judges the finished document. Off by default: whether an
+  # empty heading is noise or an intentional placeholder is an editorial call.
+  empty_headings:
+    enabled: false
+    keep: []
+  # Enforces `z_Assets/CREDITS.yaml`. An image whose origin does not permit
+  # publishing is replaced by a placeholder and never copied to `public/`.
+  # With no CREDITS.yaml present this filters nothing, so it is safe to enable
+  # before the file exists.
+  image_licensing:
+    enabled: true
+    placeholder: true # false removes the image instead of marking the gap
+  graph: { enabled: true }

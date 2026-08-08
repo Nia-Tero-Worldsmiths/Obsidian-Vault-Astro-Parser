@@ -1,0 +1,713 @@
+/* The base layer the ITS Theme is written against.
+ *
+ * ITS Theme sets values -- `--h1-size`, `--table-header-background`,
+ * `--list-marker-color` -- but almost never applies them to an element. It
+ * defines `--h1-size` and never binds it to `h1`. Something has to supply that
+ * layer: the variable defaults the theme builds on, and the rules that attach
+ * them to the markup the parser emits. This is that file.
+ *
+ * HOW IT WAS WRITTEN. From measurement. The site was rendered and
+ * `getComputedStyle` recorded for every element on eleven representative pages
+ * at two viewports; each rule below exists because a measured value said it had
+ * to. `scripts/README.md` describes how to re-run that comparison, which is the
+ * only way to check a change here has not quietly altered the site.
+ *
+ * LOAD ORDER IS LOAD-BEARING. This file is imported BEFORE `vault-theme.css`,
+ * because it is the layer the theme overrides. Several selectors here also
+ * exist in ITS at the same specificity -- `h1, .markdown-rendered h1`,
+ * `.markdown-rendered table td`, `ul, ol`, `hr` -- so source order alone
+ * decides the winner, and the theme must win. Do not move these rules into
+ * `site-overrides.css`; that file loads last precisely because it is meant
+ * to win, and the two roles are opposites.
+ *
+ * Everything here is original work and carries no third-party terms, unlike
+ * the generated `vault-theme.css`, which is GPL-2.0 by way of ITS Theme. That
+ * separation is why this is its own file.
+ */
+
+/* 1. Variable defaults
+ *
+ * The names ITS reads but does not define. Values are the ones measured in the
+ * browser against the vault's rendering. Anything expressed as a calculation is kept
+ * as a calculation rather than its frozen result, so that changing the input
+ * still propagates -- freezing `--color-accent` to a literal, for example,
+ * would silently disconnect it from the theme's own accent controls. */
+:root {
+  /* Spacing scale: a 2px and a 4px grid. Named for their step, so `--size-4-3`
+     is three 4px units. Referenced throughout ITS and Cards.css. */
+  --size-2-1: 2px;
+  --size-2-2: 4px;
+  --size-2-3: 6px;
+  --size-4-1: 4px;
+  --size-4-2: 8px;
+  --size-4-3: 12px;
+  --size-4-4: 16px;
+  --size-4-5: 20px;
+  --size-4-6: 24px;
+  --size-4-8: 32px;
+  --size-4-9: 36px;
+  --size-4-10: 40px;
+  --size-4-12: 48px;
+  --size-4-16: 64px;
+  --size-4-18: 72px;
+
+  /* Fixed palette. These are not the theme's colours -- ITS supplies those --
+     but the named swatches callout types and syntax highlighting index into. */
+  --color-red: #e93147;
+  --color-orange: #ec7500;
+  --color-yellow: #e0ac00;
+  --color-green: #08b94e;
+  --color-cyan: #00bfbc;
+  --color-blue: #086ddd;
+  --color-purple: #7852ee;
+  --color-red-rgb: 233, 49, 71;
+  --color-orange-rgb: 236, 117, 0;
+  --color-yellow-rgb: 224, 172, 0;
+  --color-green-rgb: 8, 185, 78;
+  --color-cyan-rgb: 0, 191, 188;
+  --color-blue-rgb: 8, 109, 221;
+  --color-purple-rgb: 120, 82, 238;
+
+  /* Typography. `--font-text-size` and `--font-ui-medium` are the two roots:
+     the note body reads the first, the page shell the second. */
+  --font-text-size: 16px;
+  --line-height-normal: 1.5;
+  --line-height-tight: 1.3;
+  --font-bold: 700;
+  --p-spacing: 1rem;
+  --p-spacing-empty: 0rem;
+
+  /* A plain link renders at the surrounding weight. ITS declares 600, but only
+     inside rules for links nested in bold text; left to be recovered from the
+     theme it gets hoisted to `:root` and silently bolds every link on the site.
+     Declaring it here is what keeps that from happening. */
+  --link-weight: 400;
+
+  /* Per-level heading metrics. ITS sets size, weight, colour and family; these
+     are the three it leaves to the application. */
+  --h1-line-height: 1.2;
+  --h2-line-height: 1.2;
+  --h3-line-height: 1.3;
+  --h4-line-height: 1.4;
+  --h5-line-height: 1.5;
+  --h6-line-height: 1.5;
+  --h1-letter-spacing: -0.015em;
+  --h2-letter-spacing: -0.011em;
+  --h3-letter-spacing: -0.008em;
+  --h4-letter-spacing: -0.005em;
+  --h5-letter-spacing: -0.002em;
+  --h6-letter-spacing: 0em;
+  --heading-spacing: calc(var(--p-spacing) * 2.5);
+
+  /* The note's own padding inside the reading column. */
+  --file-margins: var(--size-4-8) var(--size-4-8);
+
+  /* Tables. ITS colours them; the geometry is all here. */
+  --table-background: transparent;
+  --table-text-size: var(--font-text-size);
+  --table-line-height: 1.3em;
+  --table-border-width: 1px;
+  --table-header-border-width: 1px;
+  --table-column-first-border-width: 1px;
+  --table-column-last-border-width: 1px;
+  --table-row-last-border-width: 1px;
+  --table-cell-padding: var(--size-2-2) var(--size-4-2);
+  --table-cell-vertical-alignment: top;
+  --table-white-space: break-spaces;
+  --table-column-max-width: none;
+
+  /* Lists. `--list-indent` and the marker colours come from ITS. */
+  --list-spacing: 0.075em;
+  --list-indent: 2em;
+  --list-indent-editing: 0.75em;
+  --indent-size: 4;
+  --indent-unit: 0.5625em;
+
+  /* Callouts, code, quotes, footnotes, images, tags. */
+  --callout-border-width: 0px;
+  --callout-border-opacity: 0.25;
+  --callout-radius: 0;
+  --callout-blend-mode: darken;
+  --callout-title-padding: 0;
+  --callout-title-weight: calc(400 + 500);
+  --callout-content-padding: 0;
+  --callout-content-background: transparent;
+  --code-size: 0.9em;
+  --code-radius: 0;
+  --code-border-width: 0px;
+  --code-white-space: pre-wrap;
+  --footnote-size: 0.9em;
+  --footnote-line-height: 1.5;
+  --image-radius: 4px;
+  --tag-size: 0.9em;
+  --tag-border-width: 0px;
+  --tag-decoration: none;
+  --link-decoration-thickness: auto;
+  --checkbox-margin-inline-start: 0.85em;
+  --embed-max-height: 4000px;
+
+  /* Obsidian keeps the whole interface on the default arrow and only switches
+     to a pointer on things it treats as links; `--cursor` is read in enough
+     places that leaving it undefined changes several elements at once. */
+  --cursor: default;
+  --cursor-link: pointer;
+
+  /* One control height for the whole interface. The sidebar's expand/collapse
+     button sets its own padding and type size but not its height, so without
+     this it shrink-wraps its text and the sidebar comes out 8px shorter. */
+  --input-height: 30px;
+
+  /* Read by ITS for the nav tree and fold arrows. */
+  --nav-item-parent-padding: var(--size-4-1) var(--size-4-2);
+  --nav-item-children-margin-start: 12px;
+  --nav-item-children-padding-start: 4px;
+  --icon-l-stroke-width: 1.75px;
+}
+
+/* Defaults that are built out of the THEME's variables have to be declared
+   where those exist. ITS sets `--text-faint` and `--accent-h/s/l` on
+   `body`/`.theme-light`, and custom properties are substituted per element: a
+   `:root` declaration resolves them against `<html>`, which carries none of
+   those classes, yields nothing, and hands `<body>` an empty computed value to
+   inherit. Declaring them on `body` is what makes them resolve -- and keeps
+   them derived, so a Style Settings change to the accent still propagates
+   instead of being frozen to the value measured today. */
+body {
+  --color-accent-hsl: var(--accent-h), var(--accent-s), var(--accent-l);
+  --color-accent: hsl(var(--accent-h), var(--accent-s), var(--accent-l));
+  --collapse-icon-color: var(--text-faint);
+}
+
+/* 2. Document */
+
+/* Border-box everywhere. This is the single highest-impact rule in the file:
+   every padded box on the site -- table cells, callouts, the reading column --
+   is sized on the assumption that padding is drawn inside the declared width.
+   Deliberately `*` alone and not `*, *::before, *::after`: generated content
+   here is left at the initial `content-box`, and adding the pseudo-elements
+   resizes the theme's heading rules and the diamond list bullet. */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-interface);
+  font-size: var(--font-ui-medium);
+  line-height: var(--line-height-tight);
+  color: var(--text-normal);
+}
+
+::selection {
+  background-color: var(--text-selection);
+}
+
+/* Controls sit at one uniform height. Everything else about the site's buttons
+   -- padding, type, border, radius -- is set by their own classes in
+   BaseLayout, GraphView and ZoomMap; only the height was coming from the
+   application layer. */
+button {
+  height: var(--input-height);
+  font-family: inherit;
+}
+
+/* 3. The reading column
+ *
+ * `.markdown-preview-view` is the scroll container in Obsidian and
+ * `.markdown-rendered` the styled content; BaseLayout puts both on `<main>`
+ * because theme rules are scoped to one or the other. */
+.markdown-preview-view {
+  position: relative;
+  overflow: auto;
+  /* Reserve the scrollbar's width whether or not one is showing. Obsidian's
+     reading pane always scrolls, so the gutter is always there; on a page that
+     scrolls the document instead, without this the column is 15px wider than
+     the vault and every measured width and offset inside `main` shifts. */
+  scrollbar-gutter: stable;
+  padding: var(--file-margins);
+  font-family: var(--font-text);
+  font-size: var(--font-text-size);
+  line-height: var(--line-height-normal);
+  color: var(--text-normal);
+}
+
+.markdown-rendered {
+  font-family: var(--font-text);
+  font-size: var(--font-text-size);
+  line-height: var(--line-height-normal);
+}
+
+/* The note should begin and end flush with its padding, whatever element
+   happens to come first. Without this every page starts with the first
+   heading's margin pushing the content down by an arbitrary amount. */
+.markdown-rendered > :first-child {
+  margin-top: 0;
+}
+
+.markdown-rendered > :last-child {
+  margin-bottom: 0;
+}
+
+/* 4. Headings */
+h1,
+.markdown-rendered h1 {
+  font-family: var(--h1-font);
+  font-size: var(--h1-size);
+  font-weight: var(--h1-weight);
+  line-height: var(--h1-line-height);
+  letter-spacing: var(--h1-letter-spacing);
+  color: var(--h1-color);
+}
+
+h2,
+.markdown-rendered h2 {
+  font-family: var(--h2-font);
+  font-size: var(--h2-size);
+  font-weight: var(--h2-weight);
+  line-height: var(--h2-line-height);
+  letter-spacing: var(--h2-letter-spacing);
+  color: var(--h2-color);
+}
+
+h3,
+.markdown-rendered h3 {
+  font-family: var(--h3-font);
+  font-size: var(--h3-size);
+  font-weight: var(--h3-weight);
+  line-height: var(--h3-line-height);
+  letter-spacing: var(--h3-letter-spacing);
+  color: var(--h3-color);
+}
+
+h4,
+.markdown-rendered h4 {
+  font-family: var(--h4-font);
+  font-size: var(--h4-size);
+  font-weight: var(--h4-weight);
+  line-height: var(--h4-line-height);
+  letter-spacing: var(--h4-letter-spacing);
+  color: var(--h4-color);
+}
+
+h5,
+.markdown-rendered h5 {
+  font-family: var(--h5-font);
+  font-size: var(--h5-size);
+  font-weight: var(--h5-weight);
+  line-height: var(--h5-line-height);
+  letter-spacing: var(--h5-letter-spacing);
+  color: var(--h5-color);
+}
+
+h6,
+.markdown-rendered h6 {
+  font-family: var(--h6-font);
+  font-size: var(--h6-size);
+  font-weight: var(--h6-weight);
+  line-height: var(--h6-line-height);
+  letter-spacing: var(--h6-letter-spacing);
+  color: var(--h6-color);
+}
+
+/* `margin-top` is set by the theme, at equal specificity and after this file
+   loads, so it always wins -- omitted here rather than kept as a dead copy. */
+.markdown-rendered h1,
+.markdown-rendered h2,
+.markdown-rendered h3,
+.markdown-rendered h4,
+.markdown-rendered h5,
+.markdown-rendered h6 {
+  margin-bottom: 10px;
+}
+
+/* 5. Text */
+/* Paragraph margins are deliberately left to the user agent: its `1em` top and
+   bottom is already what `--p-spacing` describes. Do not set `margin-top: 0`
+   here -- it collapses the space between every paragraph on the site.
+   `.markdown-rendered > :first-child` above handles the one case that matters. */
+
+b,
+strong {
+  font-weight: var(--bold-weight);
+}
+
+/* Bold inside a heading is heavier than the heading, not heavier than body
+   text: the heading's own weight plus the theme's bold step. At `--h1-weight`
+   500 and `--bold-modifier` 500 that reaches 1000, which is why a bolded word
+   in a title looks distinctly heavier than one in a paragraph. */
+.markdown-rendered h1 :is(b, strong) {
+  font-weight: calc(var(--h1-weight) + var(--bold-modifier));
+}
+
+.markdown-rendered h2 :is(b, strong) {
+  font-weight: calc(var(--h2-weight) + var(--bold-modifier));
+}
+
+.markdown-rendered h3 :is(b, strong) {
+  font-weight: calc(var(--h3-weight) + var(--bold-modifier));
+}
+
+.markdown-rendered h4 :is(b, strong) {
+  font-weight: calc(var(--h4-weight) + var(--bold-modifier));
+}
+
+.markdown-rendered h5 :is(b, strong) {
+  font-weight: calc(var(--h5-weight) + var(--bold-modifier));
+}
+
+.markdown-rendered h6 :is(b, strong) {
+  font-weight: calc(var(--h6-weight) + var(--bold-modifier));
+}
+
+i,
+em {
+  font-style: italic;
+}
+
+.markdown-rendered mark {
+  background-color: var(--text-highlight-bg);
+  color: inherit;
+}
+
+/* 6. Links
+ *
+ * `--link-color` is set by ITS and raised for contrast in site-overrides.css,
+ * but neither applies it. Without this rule every link falls back to the
+ * browser's blue and both of those become dead code. */
+a {
+  color: var(--link-color);
+  text-decoration-line: var(--link-decoration);
+  text-decoration-thickness: var(--link-decoration-thickness);
+  cursor: var(--cursor-link);
+}
+
+@media (hover: hover) {
+  a:hover {
+    color: var(--link-color-hover);
+    text-decoration-line: var(--link-decoration-hover);
+  }
+}
+
+/* `--link-weight` is deliberately not applied. ITS defines it as 600 and uses
+   it itself for links nested in bold text, but a plain internal link renders at
+   the surrounding weight. */
+.markdown-rendered .internal-link {
+  color: var(--link-color);
+  text-decoration-line: var(--link-decoration);
+}
+
+@media (hover: hover) {
+  .markdown-rendered .internal-link:hover {
+    color: var(--link-color-hover);
+    text-decoration-line: var(--link-decoration-hover);
+  }
+}
+
+.external-link {
+  color: var(--link-external-color);
+  text-decoration-line: var(--link-external-decoration);
+}
+
+@media (hover: hover) {
+  .external-link:hover {
+    color: var(--link-external-color-hover);
+    text-decoration-line: var(--link-external-decoration-hover);
+  }
+}
+
+/* 7. Tags */
+/* `background-color`/`color` are set by site-overrides.css for WCAG contrast,
+   at equal specificity and after this file loads -- omitted here rather than
+   kept as a dead copy. */
+a.tag {
+  border: var(--tag-border-width) solid var(--tag-border-color);
+  border-radius: var(--tag-radius);
+  font-size: var(--tag-size);
+  line-height: 1;
+  padding: var(--tag-padding-y) var(--tag-padding-x);
+  text-decoration: var(--tag-decoration);
+  cursor: var(--cursor-link);
+}
+
+@media (hover: hover) {
+  a.tag:hover {
+    background-color: var(--tag-background-hover);
+    border-color: var(--tag-border-color-hover);
+    color: var(--tag-color-hover);
+    text-decoration: var(--tag-decoration-hover);
+  }
+}
+
+/* 8. Lists
+ *
+ * The indent comes from the item, not from the list's own padding. Obsidian
+ * zeroes `padding-inline-start` and lets each `li` place itself, which is what
+ * the diamond bullet in site-overrides.css is positioned against. */
+.markdown-rendered ul,
+.markdown-rendered ol {
+  padding-inline-start: 0;
+  margin-top: 0;
+  margin-bottom: var(--p-spacing);
+}
+
+/* Every level keeps the same marker, where the user agent would switch to
+   `circle` then `square` as lists nest. Mostly invisible, because
+   site-overrides.css suppresses `::marker` and draws the theme's rotated
+   square instead -- but it is what the vault computes, and a note that opts out
+   of the custom bullet would otherwise change shape with depth. */
+/* `:where()` contributes no specificity, so this scopes to note content while
+   still losing to anything that states an opinion -- the index page sets
+   `list-style: none` on its own listing, and a plain `.markdown-rendered ul`
+   here was specific enough to put bullets back. */
+:where(.markdown-rendered) ul {
+  list-style-type: disc;
+}
+
+.markdown-rendered ul ul,
+.markdown-rendered ul ol,
+.markdown-rendered ol ul,
+.markdown-rendered ol ol {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.markdown-rendered li {
+  position: relative;
+  padding-top: var(--list-spacing);
+  padding-bottom: var(--list-spacing);
+}
+
+.markdown-rendered li > p {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.markdown-rendered ol > li::marker {
+  color: var(--list-numbered-color);
+}
+
+.markdown-rendered ul > li::marker {
+  color: var(--list-marker-color);
+}
+
+/* 9. Tables
+ *
+ * ITS supplies cell colour and the rounded corners; the structure is here.
+ * `border-collapse: collapse` in particular is what makes the single-pixel
+ * grid read as one ruled table rather than as boxes with gaps. */
+.markdown-rendered table {
+  border-collapse: collapse;
+  background-color: var(--table-background);
+  font-size: var(--table-text-size);
+  line-height: var(--table-line-height);
+  margin-top: var(--size-4-4);
+  margin-bottom: var(--size-4-4);
+  width: 100%;
+}
+
+/* `padding` is set by the theme, per-element (`th`/`td` differ) and after
+   this file loads, so it always wins -- omitted here rather than kept as a
+   dead copy. */
+.markdown-rendered th,
+.markdown-rendered td {
+  border: var(--table-border-width) solid var(--table-border-color);
+  vertical-align: var(--table-cell-vertical-alignment);
+  white-space: var(--table-white-space);
+  max-width: var(--table-column-max-width);
+  overflow: hidden;
+}
+
+/* Header colour belongs on the ROW, not the cell: ITS rebinds
+   `--table-header-background` per context -- transparent in a callout, its own
+   value for dataview, the accent elsewhere -- and painting the cell here
+   overrides all of them. `text-align: start` stops a `th` centring the way the
+   user agent would, and the border stays full-strength rather than the body
+   grid's 75% mix, since the header sits on a saturated fill. */
+.markdown-rendered th {
+  border-color: var(--table-border-color);
+  color: var(--table-header-color);
+  text-align: start;
+}
+
+.markdown-rendered thead tr {
+  background-color: var(--table-header-background);
+}
+
+.markdown-rendered tbody tr:nth-child(odd) {
+  background-color: var(--table-row-alt-background);
+}
+
+/* Alternating COLUMNS, not rows -- every second column is tinted, header cell
+   included. Worth knowing that this out-specifies the contrast fix in
+   site-overrides.css, so an infobox header cell in an even column keeps the
+   theme's lighter tint rather than the darkened one. That is how the vault
+   already renders; it is reproduced here rather than corrected, because this
+   file's job is parity. */
+.markdown-rendered thead tr > th:nth-child(2n + 2),
+.markdown-rendered tbody tr > td:nth-child(2n + 2) {
+  background-color: var(--table-column-alt-background);
+}
+
+/* Inside a callout the body grid softens to 75% alpha. An infobox is a narrow
+   tinted panel and the full-strength rule reads as a heavy cage there; in a
+   full-width table on the page background it reads correctly. Header cells keep
+   the solid colour in both, since they sit on a saturated fill. */
+.markdown-rendered .callout td {
+  border-color: color-mix(in oklch, var(--table-border-color) 75%, transparent);
+}
+
+/* Markdown column alignment needs no rule here: the renderer emits it as an
+   inline `text-align` style on the cell, which outranks any stylesheet. */
+
+/* 10. Callouts
+ *
+ * The vault uses one type, `infobox`, which ITS styles heavily. What is left
+ * to bind is the box itself and the title row's flex layout -- without the
+ * latter the icon and the title stack instead of sitting side by side. */
+/* Never bind to a declared-but-EMPTY custom property: `var()` substitutes
+   nothing, the declaration is invalid at computed-value time, and an inherited
+   property then falls back to the inherited value, overriding whatever the
+   theme set. `--callout-padding` and `--callout-title-size` are empty here and
+   are left to ITS. An *undefined* property is different -- there the `var()`
+   fallback applies, which is what the title colour below relies on. */
+.callout {
+  background-color: var(--callout-color-bg, var(--background-primary-alt));
+  border: var(--callout-border-width) solid var(--callout-border-color, transparent);
+  border-radius: var(--callout-radius);
+  margin: var(--callout-margin);
+  mix-blend-mode: var(--callout-blend-mode);
+  overflow: hidden;
+}
+
+/* The title takes the callout's accent colour, which ITS sets per type. For
+   `infobox` that is the page cream -- the same as the callout background, so
+   the label is deliberately invisible and the header reads as the coloured row
+   beneath it. Dropping this rule makes the label appear. The icon and inner
+   title are children and inherit it. */
+.callout-title {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--size-4-1);
+  line-height: var(--line-height-tight);
+  color: var(--callout-title-color, var(--callout-color));
+}
+
+.callout-title-inner {
+  font-weight: var(--callout-title-weight);
+}
+
+.callout-icon {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
+.callout-icon::after {
+  content: "\200B";
+  display: block;
+}
+
+.callout-content {
+  background-color: var(--callout-content-background);
+  padding: var(--callout-content-padding);
+  overflow: auto;
+}
+
+.callout-content > :first-child {
+  margin-top: 0;
+}
+
+.callout-content > :last-child {
+  margin-bottom: 0;
+}
+
+/* 11. Rules, images, quotes, code
+ *
+ * `--hr-thickness` is 0 under this theme: the visible divider is drawn by ITS
+ * as a background image on `hr`, and the border here only carries the colour
+ * for anything that overrides the thickness. */
+/* `width` is set by the theme, at equal specificity and after this file
+   loads, so it always wins -- omitted here rather than kept as a dead copy. */
+.markdown-rendered hr {
+  border: none;
+  border-top: var(--hr-thickness) solid var(--hr-color);
+  margin-top: var(--size-4-8);
+  margin-bottom: var(--size-4-8);
+}
+
+/* Obsidian applies `--image-radius` to the `.image-embed` wrapper it puts
+   around `![[...]]`, not to `img` itself. The parser emits a bare `<img>`, so
+   nothing here inherited it and note images came out square while the vault's
+   were softly rounded.
+   Applied to the image directly for that reason. It does reach card portraits,
+   which is correct: Cards.css rounds those in the vault too. */
+.markdown-rendered img,
+.markdown-rendered video {
+  max-width: 100%;
+  border-radius: var(--image-radius);
+}
+
+/* `padding` is set by the theme, at equal specificity and after this file
+   loads, so it always wins -- omitted here rather than kept as a dead copy. */
+.markdown-rendered blockquote {
+  background-color: var(--blockquote-background-color);
+  border-inline-start: var(--blockquote-border-thickness) solid var(--blockquote-border-color);
+  color: var(--blockquote-color);
+  font-style: var(--blockquote-font-style);
+  margin-inline: 0;
+  padding-inline-start: var(--size-4-6);
+}
+
+.markdown-rendered code {
+  background-color: var(--code-background);
+  border: var(--code-border-width) solid var(--code-border-color);
+  border-radius: var(--code-radius);
+  color: var(--code-normal);
+  font-family: var(--font-monospace);
+  font-size: var(--code-size);
+  padding: var(--size-2-1) var(--size-2-2);
+  white-space: var(--code-white-space);
+}
+
+.markdown-rendered pre {
+  background-color: var(--code-background);
+  border-radius: var(--code-radius);
+  font-family: var(--font-monospace);
+  font-size: var(--code-size);
+  overflow-x: auto;
+  padding: var(--size-4-3);
+}
+
+/* A code block inside a `pre` is the block's own text: it must not repeat the
+   background, padding or border the block already draws. */
+.markdown-rendered pre code {
+  background-color: transparent;
+  border: none;
+  border-radius: 0;
+  color: inherit;
+  font-size: inherit;
+  padding: 0;
+  white-space: pre;
+}
+
+/* 12. Task lists and footnotes
+ *
+ * Neither appears in the vault today, so there is no measurement to match --
+ * these are built from the theme's own values so that the first note to use
+ * one does not render unstyled. */
+.markdown-rendered ul > li.task-list-item {
+  list-style-type: none;
+}
+
+.markdown-rendered .task-list-item-checkbox {
+  margin-inline-start: calc(var(--checkbox-margin-inline-start) * -1);
+  margin-inline-end: var(--size-2-3);
+  cursor: var(--cursor-link);
+}
+
+.markdown-rendered .footnotes {
+  font-size: var(--footnote-size);
+  line-height: var(--footnote-line-height);
+  border-top: var(--footnote-divider-width) solid var(--footnote-divider-color);
+  margin-top: var(--size-4-8);
+  padding-top: var(--size-4-4);
+}

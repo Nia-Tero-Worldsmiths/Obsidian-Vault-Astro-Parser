@@ -1,0 +1,30 @@
+# Image provenance for the example vault.
+#
+# A miniature of the real thing, kept here so the `image_licensing` module has
+# something to enforce when the pipeline is run against this vault. Two rows,
+# chosen to exercise both outcomes: one image is published, one is blocked.
+#
+# See the parser's README for the full schema.
+
+version: 1
+
+# Whether a file may be copied to the public site, by origin.
+policy:
+  original: publish # ours to show
+  ai: publish # showable, but not licensable
+  licensed: publish # someone else's, but the terms allow it
+  external: never # someone else's work, no permission
+  unknown: never # unclassified is not a licence to publish
+
+# Applied to any row that does not say otherwise, and to any file with no row.
+defaults:
+  origin: unknown
+  license: reserved
+
+assets:
+  "escudo-ejemplo.svg": { origin: original, author: Example Author }
+
+  # Blocked. Referenced by `Gremio de Ejemplo.md`, but never copied to
+  # `public/vault-assets/` -- the embed is replaced with a placeholder that
+  # keeps the original alt text, so the gap is visible rather than silent.
+  "retrato-ajeno.svg": { origin: external }

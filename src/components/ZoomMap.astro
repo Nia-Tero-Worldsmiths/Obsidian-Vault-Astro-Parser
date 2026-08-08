@@ -1,0 +1,207 @@
+---
+/**
+ * Behaviour for the maps Module 8 renders into the markdown.
+ *
+ * The markup is produced by the parser, not by this component -- it only
+ * carries the styles and the pan/zoom script. Included once from BaseLayout;
+ * the script no-ops on pages without a map.
+ *
+ * Progressive enhancement is deliberate: with JavaScript disabled the map is
+ * still a static image with its pins correctly placed and clickable, because
+ * positioning is pure CSS percentages. This only adds panning and zooming.
+ */
+import "../styles/zoommap.css";
+---
+
+<script>
+  type State = { scale: number; x: number; y: number };
+
+  function setup(map: HTMLElement) {
+    const viewport = map.querySelector<HTMLElement>(".zoommap-viewport");
+    const world = map.querySelector<HTMLElement>(".zoommap-world");
+    if (!viewport || !world) return;
+
+    const min = parseFloat(map.dataset.minZoom ?? "0.25") || 0.25;
+    const max = parseFloat(map.dataset.maxZoom ?? "4") || 4;
+    const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+
+    /**
+     * Scale that fits the image to the viewport.
+     *
+     * The world is sized in the image's natural pixels, matching the plugin,
+     * where `scale: 1` is 100% of the source. So the *starting* scale has to
+     * be computed rather than assumed to be 1 -- Tambler is 2048px wide in a
+     * ~700px column, and starting at 1 would drop the reader into a corner of
+     * the map at full magnification.
+     */
+    function fitScale() {
+      const box = viewport.getBoundingClientRect();
+      if (!world.offsetWidth || !box.width) return 1;
+      return clamp(box.width / world.offsetWidth, min, max);
+    }
+
+    const state: State = { scale: fitScale(), x: 0, y: 0 };
+    /** True while the map is still showing the whole image, untouched. */
+    let atFit = true;
+
+    function apply() {
+      world.style.setProperty("--zm-x", `${state.x}px`);
+      world.style.setProperty("--zm-y", `${state.y}px`);
+      world.style.setProperty("--zm-scale", String(state.scale));
+      // Pins read this to cancel out the world scale and stay legible.
+      world.style.setProperty("--zm-inv", String(1 / state.scale));
+    }
+
+    /** Zoom about a point in viewport coordinates, keeping it stationary. */
+    function zoomAt(factor: number, px: number, py: number) {
+      const next = clamp(state.scale * factor, min, max);
+      if (next === state.scale) return;
+      atFit = false;
+      const ratio = next / state.scale;
+      state.x = px - (px - state.x) * ratio;
+      state.y = py - (py - state.y) * ratio;
+      state.scale = next;
+      constrain();
+      apply();
+    }
+
+    /** Keep the map from being dragged entirely out of view. */
+    function constrain() {
+      const box = viewport.getBoundingClientRect();
+      const w = world.offsetWidth * state.scale;
+      const h = world.offsetHeight * state.scale;
+      const slackX = Math.max(0, w - box.width);
+      const slackY = Math.max(0, h - box.height);
+      state.x = clamp(state.x, -slackX, w > box.width ? 0 : box.width - w);
+      state.y = clamp(state.y, -slackY, h > box.height ? 0 : box.height - h);
+    }
+
+    viewport.addEventListener(
+      "wheel",
+      (event) => {
+        event.preventDefault();
+        const box = viewport.getBoundingClientRect();
+        zoomAt(
+          event.deltaY < 0 ? 1.15 : 1 / 1.15,
+          event.clientX - box.left,
+          event.clientY - box.top,
+        );
+      },
+      { passive: false },
+    );
+
+    let pointer: number | null = null;
+    let downX = 0;
+    let downY = 0;
+    let originX = 0;
+    let originY = 0;
+    let dragging = false;
+    /** Set when a drag ends, to swallow the click the browser fires after it. */
+    let suppressClick = false;
+
+    const DRAG_THRESHOLD = 4; // px of travel before a press counts as a pan
+
+    viewport.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0) return;
+      pointer = event.pointerId;
+      downX = event.clientX;
+      downY = event.clientY;
+      originX = state.x;
+      originY = state.y;
+      dragging = false;
+      // Deliberately NOT capturing the pointer here. While an element holds
+      // pointer capture the browser fires the subsequent `click` at the
+      // *capturing* element, so capturing on pointerdown silently stole every
+      // click from the pins and made the map's links unfollowable. Capture is
+      // taken below, only once a real drag starts.
+    });
+
+    viewport.addEventListener("pointermove", (event) => {
+      if (pointer !== event.pointerId) return;
+      const dx = event.clientX - downX;
+      const dy = event.clientY - downY;
+
+      if (!dragging) {
+        if (Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
+        dragging = true;
+        viewport.classList.add("is-panning");
+        viewport.setPointerCapture(event.pointerId);
+      }
+
+      state.x = originX + dx;
+      state.y = originY + dy;
+      atFit = false;
+      constrain();
+      apply();
+    });
+
+    const release = (event: PointerEvent) => {
+      if (pointer !== event.pointerId) return;
+      if (dragging) {
+        suppressClick = true;
+        if (viewport.hasPointerCapture(event.pointerId)) {
+          viewport.releasePointerCapture(event.pointerId);
+        }
+      }
+      pointer = null;
+      dragging = false;
+      viewport.classList.remove("is-panning");
+    };
+    viewport.addEventListener("pointerup", release);
+    viewport.addEventListener("pointercancel", release);
+
+    // A drag that happens to end over a pin must not also follow its link.
+    viewport.addEventListener(
+      "click",
+      (event) => {
+        if (!suppressClick) return;
+        suppressClick = false;
+        event.preventDefault();
+        event.stopPropagation();
+      },
+      true,
+    );
+
+    map.querySelectorAll<HTMLButtonElement>(".zoommap-btn").forEach((button) => {
+      button.addEventListener("click", () => {
+        const box = viewport.getBoundingClientRect();
+        const cx = box.width / 2;
+        const cy = box.height / 2;
+        if (button.dataset.zoom === "in") zoomAt(1.4, cx, cy);
+        else if (button.dataset.zoom === "out") zoomAt(1 / 1.4, cx, cy);
+        else {
+          state.scale = fitScale();
+          state.x = 0;
+          state.y = 0;
+          atFit = true;
+          constrain();
+          apply();
+        }
+      });
+    });
+
+    constrain();
+    apply();
+
+    // Refit on resize, but only while the reader has not zoomed themselves --
+    // otherwise a window resize would throw away where they were looking.
+    window.addEventListener("resize", () => {
+      if (!atFit) return;
+      state.scale = fitScale();
+      state.x = 0;
+      state.y = 0;
+      constrain();
+      apply();
+    });
+  }
+
+  function init() {
+    document.querySelectorAll<HTMLElement>(".zoommap").forEach(setup);
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
+</script>

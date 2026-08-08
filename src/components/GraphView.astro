@@ -1,0 +1,335 @@
+---
+/**
+ * Force-directed view of `src/generated/graph.json` (Module 9).
+ *
+ * Two modes from one component: a small non-interactive widget for the
+ * sidebar, and the full view with pan, zoom and draggable nodes. Appearance
+ * and physics come from the vault's own `.obsidian/graph.json`, so this
+ * resembles the graph in Obsidian rather than a generic diagram.
+ *
+ * Rendered as SVG rather than canvas because the nodes are real `<a>`
+ * elements: keyboard-reachable, and still navigable if the simulation script
+ * never runs (they simply sit in their initial ring).
+ */
+interface Props {
+  compact?: boolean;
+  /** Heading shown above the graph; links to the full page when compact. */
+  title?: string;
+}
+
+const { compact = false, title = "Grafo" } = Astro.props;
+
+const loaded = import.meta.glob<{ nodes: any[]; edges: any[]; settings: any }>(
+  "../generated/graph.json",
+  { eager: true, import: "default" },
+);
+const graph = Object.values(loaded)[0] ?? { nodes: [], edges: [], settings: {} };
+const id = `graph-${Math.random().toString(36).slice(2, 8)}`;
+---
+
+{
+  graph.nodes.length > 0 && (
+    <figure class:list={["graph", { "is-compact": compact }]} data-graph={id}>
+      {compact ? (
+        <figcaption class="graph-title">
+          <a href="/grafo">
+            {title} <span class="graph-count">{graph.nodes.length}</span>
+          </a>
+        </figcaption>
+      ) : null}
+
+      <div class="graph-canvas">
+        <svg class="graph-svg" aria-label={`${title}: ${graph.nodes.length} notas`}>
+          <g class="graph-world">
+            <g class="graph-edges" />
+            <g class="graph-nodes" />
+          </g>
+        </svg>
+      </div>
+
+      {!compact && (
+        <div class="graph-controls">
+          <button type="button" class="graph-btn" data-graph-zoom="in" aria-label="Acercar">+</button>
+          <button type="button" class="graph-btn" data-graph-zoom="out" aria-label="Alejar">-</button>
+          <button type="button" class="graph-btn" data-graph-zoom="reset" aria-label="Restablecer">&#8634;</button>
+        </div>
+      )}
+
+      <script type="application/json" data-graph-data={id} set:html={JSON.stringify(graph)} />
+    </figure>
+  )
+}
+
+<script>
+  type Node = {
+    id: string; title: string; url: string; degree: number; color: string | null;
+    x: number; y: number; vx: number; vy: number; fixed?: boolean;
+  };
+
+  function build(figure: HTMLElement) {
+    const key = figure.dataset.graph;
+    const payload = figure.querySelector(`script[data-graph-data="${key}"]`);
+    if (!payload?.textContent) return;
+
+    const data = JSON.parse(payload.textContent);
+    const compact = figure.classList.contains("is-compact");
+    const svg = figure.querySelector<SVGSVGElement>(".graph-svg");
+    const world = figure.querySelector<SVGGElement>(".graph-world");
+    const edgeLayer = figure.querySelector<SVGGElement>(".graph-edges");
+    const nodeLayer = figure.querySelector<SVGGElement>(".graph-nodes");
+    if (!svg || !world || !edgeLayer || !nodeLayer) return;
+
+    const forces = data.settings?.forces ?? {};
+    const repel = (forces.repelStrength ?? 10) * 12;
+    const linkDistance = forces.linkDistance ?? 30;
+    const linkStrength = (forces.linkStrength ?? 1) * 0.05;
+    const centerStrength = (forces.centerStrength ?? 0.5) * 0.006;
+    const nodeScale = data.settings?.nodeSizeMultiplier ?? 1;
+
+    // Seed on a ring: deterministic, and already legible before the first tick
+    // so the graph never appears as a single clump.
+    const nodes: Node[] = data.nodes.map((n: any, i: number) => {
+      const angle = (i / data.nodes.length) * Math.PI * 2;
+      const radius = 140 + (i % 5) * 18;
+      return { ...n, x: Math.cos(angle) * radius, y: Math.sin(angle) * radius, vx: 0, vy: 0 };
+    });
+    const index = new Map(nodes.map((n) => [n.id, n]));
+    const edges = data.edges
+      .map((e: any) => ({ s: index.get(e.source), t: index.get(e.target) }))
+      .filter((e: any) => e.s && e.t);
+
+    /* Node radius in *screen* pixels, not layout units.
+     *
+     * Tying radius to layout units couples two things that should be
+     * independent: how much of the canvas the graph covers, and how big the
+     * dots look. Capping the zoom to keep dots small also stopped the graph
+     * filling its canvas; letting it fill the canvas made the dots huge.
+     * Instead `fit()` may zoom as far as it likes and the radii are divided
+     * by the resulting scale, so apparent size stays put either way.
+     * Manual zooming afterwards still magnifies everything, as expected. */
+    const screenRadius = (n: Node) =>
+      ((compact ? 2.2 : 3.2) + Math.sqrt(n.degree) * (compact ? 0.9 : 1.3)) * nodeScale;
+
+    const maxFit = 4;
+
+    // --- render ---------------------------------------------------------
+    const ns = "http://www.w3.org/2000/svg";
+    const lines = edges.map(() => {
+      const line = document.createElementNS(ns, "line");
+      line.setAttribute("class", "graph-edge");
+      edgeLayer.appendChild(line);
+      return line;
+    });
+
+    const groups = nodes.map((node) => {
+      const anchor = document.createElementNS(ns, "a") as SVGAElement;
+      anchor.setAttribute("href", node.url);
+      anchor.setAttribute("class", "graph-node");
+      anchor.dataset.id = node.id;
+
+      const circle = document.createElementNS(ns, "circle");
+      circle.setAttribute("r", String(screenRadius(node)));
+      if (node.color) circle.setAttribute("fill", node.color);
+      anchor.appendChild(circle);
+
+      const label = document.createElementNS(ns, "text");
+      label.setAttribute("class", "graph-label");
+      label.setAttribute("dy", String(-screenRadius(node) - 4));
+      label.textContent = node.title;
+      anchor.appendChild(label);
+
+      const tip = document.createElementNS(ns, "title");
+      tip.textContent = `${node.title} (${node.degree})`;
+      anchor.appendChild(tip);
+
+      nodeLayer.appendChild(anchor);
+      return anchor;
+    });
+
+    function draw() {
+      edges.forEach((e: any, i: number) => {
+        lines[i].setAttribute("x1", e.s.x); lines[i].setAttribute("y1", e.s.y);
+        lines[i].setAttribute("x2", e.t.x); lines[i].setAttribute("y2", e.t.y);
+      });
+      nodes.forEach((n, i) => groups[i].setAttribute("transform", `translate(${n.x} ${n.y})`));
+    }
+
+    // --- simulation -----------------------------------------------------
+    let alpha = 1;
+    function tick() {
+      for (let i = 0; i < nodes.length; i++) {
+        const a = nodes[i];
+        for (let j = i + 1; j < nodes.length; j++) {
+          const b = nodes[j];
+          let dx = b.x - a.x, dy = b.y - a.y;
+          let d2 = dx * dx + dy * dy;
+          if (d2 < 1) { d2 = 1; dx = Math.random() - 0.5; dy = Math.random() - 0.5; }
+          const force = repel / d2;
+          const d = Math.sqrt(d2);
+          const fx = (dx / d) * force, fy = (dy / d) * force;
+          a.vx -= fx; a.vy -= fy; b.vx += fx; b.vy += fy;
+        }
+      }
+      for (const e of edges) {
+        const dx = e.t.x - e.s.x, dy = e.t.y - e.s.y;
+        const d = Math.hypot(dx, dy) || 1;
+        const force = (d - linkDistance) * linkStrength;
+        const fx = (dx / d) * force, fy = (dy / d) * force;
+        e.s.vx += fx; e.s.vy += fy; e.t.vx -= fx; e.t.vy -= fy;
+      }
+      for (const n of nodes) {
+        n.vx -= n.x * centerStrength;
+        n.vy -= n.y * centerStrength;
+        if (n.fixed) { n.vx = 0; n.vy = 0; continue; }
+        n.vx *= 0.82; n.vy *= 0.82;
+        n.x += n.vx * alpha; n.y += n.vy * alpha;
+      }
+      alpha = Math.max(0.02, alpha * 0.995);
+    }
+
+    let frames = 0;
+    let raf = 0;
+    function loop() {
+      tick();
+      draw();
+      frames++;
+      // Refit as it settles, so the graph stays centred throughout rather than
+      // drifting across the canvas and snapping into place at the end.
+      if (frames % 12 === 0) fit();
+      if (frames < (compact ? 70 : 110)) raf = requestAnimationFrame(loop);
+      else { fit(); raf = 0; }
+    }
+
+    // --- view -----------------------------------------------------------
+    const view = { scale: 1, x: 0, y: 0 };
+    function applyView() {
+      world.setAttribute("transform", `translate(${view.x} ${view.y}) scale(${view.scale})`);
+      world.style.setProperty("--graph-inv", String(1 / view.scale));
+    }
+    function fit() {
+      const box = svg.getBoundingClientRect();
+      if (!box.width) return;
+      const xs = nodes.map((n) => n.x), ys = nodes.map((n) => n.y);
+      // Padding is in layout units, so it competes directly with the graph for
+      // canvas: 48 here left a third of a short canvas empty. Just enough to
+      // keep the outermost dots and their labels off the edge.
+      const pad = compact ? 12 : 20;
+      const w = Math.max(...xs) - Math.min(...xs) + pad * 2;
+      const h = Math.max(...ys) - Math.min(...ys) + pad * 2;
+      view.scale = Math.min(box.width / w, box.height / h, maxFit);
+      view.x = box.width / 2 - ((Math.max(...xs) + Math.min(...xs)) / 2) * view.scale;
+      view.y = box.height / 2 - ((Math.max(...ys) + Math.min(...ys)) / 2) * view.scale;
+      applyView();
+      normaliseRadii();
+    }
+
+    /** Keep dots at their intended on-screen size for the current fit. */
+    function normaliseRadii() {
+      const inverse = 1 / view.scale;
+      nodes.forEach((node, i) => {
+        const r = screenRadius(node) * inverse;
+        groups[i].firstElementChild?.setAttribute("r", String(r));
+        const label = groups[i].querySelector("text");
+        label?.setAttribute("dy", String(-r - 4 * inverse));
+      });
+    }
+
+    if (!compact) {
+      let pointer: number | null = null;
+      let dragNode: Node | null = null;
+      let downX = 0, downY = 0, ox = 0, oy = 0, moved = false, suppress = false;
+
+      svg.addEventListener("pointerdown", (event) => {
+        if (event.button !== 0) return;
+        pointer = event.pointerId;
+        downX = event.clientX; downY = event.clientY;
+        moved = false;
+        const anchor = (event.target as Element).closest(".graph-node") as HTMLElement | null;
+        dragNode = anchor ? index.get(anchor.dataset.id!) ?? null : null;
+        if (dragNode) dragNode.fixed = true;
+        else { ox = view.x; oy = view.y; }
+      });
+
+      svg.addEventListener("pointermove", (event) => {
+        if (pointer !== event.pointerId) return;
+        const dx = event.clientX - downX, dy = event.clientY - downY;
+        if (!moved && Math.hypot(dx, dy) < 4) return;
+        if (!moved) { moved = true; svg.setPointerCapture(event.pointerId); svg.classList.add("is-panning"); }
+        if (dragNode) {
+          dragNode.x += (event.movementX || 0) / view.scale;
+          dragNode.y += (event.movementY || 0) / view.scale;
+          alpha = Math.max(alpha, 0.6);
+          if (!raf) { frames = 0; loop(); }
+        } else { view.x = ox + dx; view.y = oy + dy; applyView(); }
+        draw();
+      });
+
+      const up = (event: PointerEvent) => {
+        if (pointer !== event.pointerId) return;
+        if (moved) suppress = true;
+        if (svg.hasPointerCapture(event.pointerId)) svg.releasePointerCapture(event.pointerId);
+        if (dragNode) dragNode.fixed = false;
+        dragNode = null; pointer = null; moved = false;
+        svg.classList.remove("is-panning");
+      };
+      svg.addEventListener("pointerup", up);
+      svg.addEventListener("pointercancel", up);
+      // Same trap as the maps: a drag ending on a node must not follow its link.
+      svg.addEventListener("click", (event) => {
+        if (!suppress) return;
+        suppress = false;
+        event.preventDefault(); event.stopPropagation();
+      }, true);
+
+      svg.addEventListener("wheel", (event) => {
+        event.preventDefault();
+        const box = svg.getBoundingClientRect();
+        const px = event.clientX - box.left, py = event.clientY - box.top;
+        const factor = event.deltaY < 0 ? 1.15 : 1 / 1.15;
+        const next = Math.min(4, Math.max(0.2, view.scale * factor));
+        const ratio = next / view.scale;
+        view.x = px - (px - view.x) * ratio;
+        view.y = py - (py - view.y) * ratio;
+        view.scale = next;
+        applyView();
+      }, { passive: false });
+
+      figure.querySelectorAll<HTMLButtonElement>(".graph-btn").forEach((button) => {
+        button.addEventListener("click", () => {
+          const box = svg.getBoundingClientRect();
+          const cx = box.width / 2, cy = box.height / 2;
+          const mode = button.dataset.graphZoom;
+          if (mode === "reset") { fit(); return; }
+          const factor = mode === "in" ? 1.4 : 1 / 1.4;
+          const next = Math.min(4, Math.max(0.2, view.scale * factor));
+          const ratio = next / view.scale;
+          view.x = cx - (cx - view.x) * ratio;
+          view.y = cy - (cy - view.y) * ratio;
+          view.scale = next;
+          applyView();
+        });
+      });
+    }
+
+    // Settle the layout synchronously before the first paint. Animating from
+    // the seed ring meant the graph appeared in the top-left corner and then
+    // crawled to the middle over several seconds; running the physics up front
+    // costs a few milliseconds (40 nodes) and the first frame the reader sees
+    // is already centred and readable.
+    const preroll = 260;
+    for (let i = 0; i < preroll; i++) tick();
+    alpha = 0.35; // leave a little energy so the tail animates gently
+    draw();
+    fit();
+
+    if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      loop();
+    }
+  }
+
+  function init() {
+    document.querySelectorAll<HTMLElement>("[data-graph]").forEach(build);
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
+  else init();
+</script>

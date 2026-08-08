@@ -1,0 +1,26 @@
+---
+/**
+ * Full-size link graph, with pan, zoom and draggable nodes.
+ *
+ * The sidebar widget on every page links here. Both render the same
+ * `src/generated/graph.json`; only the interaction differs.
+ */
+import { getCollection } from "astro:content";
+import BaseLayout from "../layouts/BaseLayout.astro";
+import GraphView from "../components/GraphView.astro";
+
+const collections = ["atlas", "encyclopedia", "prosa"] as const;
+const total = (
+  await Promise.all(collections.map((name) => getCollection(name)))
+).flat().length;
+---
+
+<BaseLayout title="Grafo">
+  <h1>Grafo</h1>
+  <p>
+    Conexiones entre las {total} notas publicadas. Los colores siguen los grupos
+    definidos en el vault. Arrastra un nodo para moverlo, la rueda para acercar.
+  </p>
+
+  <GraphView compact={false} />
+</BaseLayout>

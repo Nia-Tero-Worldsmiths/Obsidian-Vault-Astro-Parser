@@ -1,0 +1,44 @@
+MIT License
+
+Copyright (c) 2026 Nia Tero Worldsmiths
+                   (Marioespiro, Emperadoracero, Rei-pyo)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+This licence covers everything tracked in this repository -- the parser under
+`scripts/`, the Astro components, layouts and pages under `src/`, the
+hand-written stylesheets, and the fixture vault under `examples/` -- with two
+third-party exceptions:
+
+  * the Inter sources in `vendor/fonts/` and the subset copies in
+    `public/fonts/`, under the SIL Open Font License 1.1;
+  * the icon path data inlined in `src/components/NavTree.astro`, CC BY 4.0
+    from Font Awesome Free.
+
+RUNNING this tool produces material it does not cover, none of which is tracked
+here: a vault's text and images, and `src/styles/vault-theme.css`, which is
+generated from the vault's own Obsidian theme and inherits that theme's
+GPL-2.0. For the Nia Tero site specifically, LICENSE-CONTENT states the terms
+on the text and records that the images carry none.
+
+THIRD-PARTY.md explains the division and carries the attribution notices.
+
+THIRD-PARTY.md explains the division and carries the attribution notices.

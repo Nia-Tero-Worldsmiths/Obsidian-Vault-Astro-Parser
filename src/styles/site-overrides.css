@@ -1,0 +1,156 @@
+/* Everything that has to beat the extracted theme.
+ *
+ * Loads LAST, so it wins. `base.css` loads first and loses -- that is the whole
+ * distinction between the two, and putting a rule in the wrong one silently
+ * changes which layer it defers to. Anything belonging to the base layer goes
+ * there, not here.
+ *
+ * Two kinds of rule live here: adaptations the vault's appearance needs on a
+ * web page rather than in an editor pane, and the site's colour deviations for
+ * WCAG AA contrast.
+ */
+
+/* Specificity matches the theme's own `.theme-light.wotc-beyond`; a plain
+ * `:root` would lose regardless of load order.
+ *
+ * `--font-default`: under `wotc-beyond` the theme's stack lists display faces
+ * ahead of Inter that are not installed in the vault and are not shipped here,
+ * so Inter is the entry it actually resolves to. Naming it first makes that
+ * explicit instead of dependent on what is installed locally; the fallbacks
+ * after it are ITS's own non-wotc default, so a failed webfont load lands
+ * somewhere the theme already endorses.
+ *
+ * `--link-color`: contrast deviation. #df6262 measures 3.31:1 on the cream
+ * background, and this vault's prose is link-dense. #d63636 is the smallest
+ * darkening that clears 4.5:1, computed by lowering lightness in HLS while
+ * holding hue and saturation. */
+:root,
+.theme-light,
+.theme-light.wotc-beyond,
+.theme-light .wotc-beyond {
+  --font-default: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, Helvetica, Arial, sans-serif;
+  --link-color: #d63636;
+  --link-external-color: #d63636;
+}
+
+/* Contrast deviation. The infobox's section header rows and inline tag pills
+ * both sit at 3.13:1 on the theme's salmon. Darkening the background rather
+ * than lightening the text keeps the white lettering the theme intends -- pure
+ * white on the original salmon only reaches 3.76:1. 4.50:1 after. */
+.callout[data-callout~="infobox"] table th,
+a.tag {
+  background-color: #c75049;
+  color: #fff;
+}
+
+/* Link states Obsidian has no concept of: a note that exists in the vault but
+ * is not published yet. Deliberately not a link -- muted, dotted, so it reads
+ * as "known but unavailable" rather than as prose or as a broken link. */
+.internal-link.is-unpublished,
+.internal-link.is-unresolved {
+  color: var(--text-muted);
+  cursor: help;
+  text-decoration: underline dotted var(--text-faint);
+  text-underline-offset: 2px;
+}
+
+/* The vault's diamond bullet is a rotated square, not the `◆` character: a
+ * glyph sits on the baseline and comes out oversized, and `::marker` cannot be
+ * adjusted vertically. So suppress the marker and draw a box instead, from the
+ * theme's own variables so Style Settings changes still track.
+ *
+ * Scoped to `ul`, so ordered lists keep their numerals, and skipped on task
+ * list items, whose marker is the checkbox. */
+.markdown-preview-view ul > li::marker {
+  content: "";
+}
+
+.markdown-preview-view ul > li {
+  /* The theme indents items ~30px from the paragraph margin, which pushes the
+     text right while the bullet hangs back. A smaller indent keeps the pair
+     together and inside the text column. */
+  margin-inline-start: 1em;
+}
+
+.markdown-preview-view ul > li::before {
+  content: "";
+  /* Load-bearing. The theme floats this (`float: inline-start`), and a float is
+     pulled to the containing block's inline edge -- which made the bullet
+     ignore every offset and sit out by the `ul` margin, and silently blockified
+     `display: inline-block`. Clearing the float is what makes the rest work.
+     The negative start margin then hangs the bullet to the left and the
+     positive end margin sets the gap, so wrapped lines still align under the
+     first line's text. */
+  float: none;
+  display: inline-block;
+  width: var(--list-bullet-size, 6px);
+  height: var(--list-bullet-size, 6px);
+  margin-inline-start: calc((var(--list-bullet-size, 6px) + 0.55em) * -1);
+  margin-inline-end: 0.55em;
+  background-color: var(--list-marker-color, currentColor);
+  border-radius: var(--list-bullet-radius, 1px);
+  transform: var(--list-bullet-transform, rotate(45deg));
+  vertical-align: 0.1em;
+}
+
+.markdown-preview-view ul > li.task-list-item::before {
+  content: none;
+}
+
+/* Obsidian sizes images against a pane; a text column has no equivalent. */
+.markdown-preview-view img {
+  max-width: 100%;
+}
+
+/* `:not([height])` is load-bearing. An image carrying a `height` attribute got
+ * it from an Obsidian embed size (`![[img.jpg|500x500]]`, or the
+ * `embed(link(imagen, "500x500"))` form the card queries use). Those attributes
+ * are presentational hints with the lowest priority, so a blanket `height:
+ * auto` overrides them -- which makes cards whose portraits have different
+ * aspect ratios render at different heights. */
+.markdown-preview-view img:not([height]) {
+  height: auto;
+}
+
+/* Narrow viewports: stop the infobox floating. The theme gives it a fixed
+ * 300px floated right, which is correct in a desktop pane; in a narrow column
+ * the prose is squeezed to a few words per line, and `text-align: justify` from
+ * custom.css then stretches them across the gap. Obsidian handles this with
+ * `.is-mobile` rules, which are editor-only and filtered out of the extract.
+ * Threshold matches the sidebar breakpoint in BaseLayout. */
+@media (max-width: 60rem) {
+  .callout[data-callout~="infobox"] {
+    float: none !important;
+    width: auto !important;
+    max-width: 26rem;
+    margin-inline: auto;
+  }
+}
+
+/* Withheld images (Module 8c).
+ *
+ * An image the vault's CREDITS.yaml does not allow publishing is replaced by
+ * this rather than removed: the gap is meaningful -- something belongs here and
+ * is being withheld -- and silently collapsing it would make the page look
+ * finished when it is not. The alt text of the original survives on the
+ * wrapper, so the subject is still announced to a screen reader. */
+.image-withheld {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 6rem;
+  padding: 1.5rem;
+  border: 1px dashed var(--background-modifier-border, #d8ccbc);
+  border-radius: var(--image-radius, 4px);
+  background-color: var(--background-secondary, #f6f2ea);
+}
+
+.image-withheld-icon {
+  width: 2rem;
+  height: 2rem;
+  opacity: 0.35;
+  /* The icon is decorative; the wrapper carries the label. */
+  pointer-events: none;
+}

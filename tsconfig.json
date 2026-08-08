@@ -1,5 +1,9 @@
 {
   "extends": "astro/tsconfigs/strict",
   "include": [".astro/types.d.ts", "**/*"],
-  "exclude": ["dist"]
+  // The vault now lives outside the project (see `vault_root` in
+  // vault.config.yaml), so `src/vault` is only excluded in case a symlink is
+  // ever put back there: without it, `**/*` pulls ~2500 vendored icon SVGs and
+  // every Obsidian plugin bundle into the TypeScript project graph.
+  "exclude": ["dist", "src/vault", ".venv", "vendor"]
 }

@@ -1,0 +1,78 @@
+Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)
+
+Copyright (c) 2026 Nia Tero Worldsmiths
+                   (Marioespiro, Emperadoracero, Rei-pyo)
+
+The written worldbuilding of Nia Tero -- its prose, characters, places,
+organisations and history -- is licensed under CC BY-SA 4.0.
+
+  Deed (plain language):  https://creativecommons.org/licenses/by-sa/4.0/
+  Legal code (binding):   https://creativecommons.org/licenses/by-sa/4.0/legalcode
+
+WHAT THIS COVERS
+
+  The notes, in markdown -- emitted to `src/content/` when the parser runs, and
+  rendered as the pages of the published site.
+
+  That is the whole of it. TEXT ONLY.
+
+  Note that none of it is tracked in this repository, which holds the tool
+  rather than any vault's output. This file states the terms the Nia Tero site
+  publishes its text under; the site's own footer carries the same notice to
+  the people actually reading it.
+
+IMAGES ARE NOT LICENSED
+
+  Nothing in `public/vault-assets/` is covered. Those files are ALL RIGHTS
+  RESERVED by their respective authors, and no permission to reuse them is
+  granted here.
+
+  They are deliberately excluded rather than forgotten. The illustrations come
+  from more than one source and each needs its own answer, so licensing them as
+  a block would mean granting rights over material the team does not hold. A
+  narrower claim that is true beats a broader one that is not -- and a CC grant
+  cannot be withdrawn once made.
+
+  `z_Assets/CREDITS.yaml` in the vault tracks each file's origin and author as
+  they are confirmed. Until an image is recorded there with an explicit licence,
+  assume you may not reuse it.
+
+EVERYTHING ELSE IN THE REPOSITORY
+
+  Code, layouts, components and hand-written CSS   MIT, see LICENSE
+  src/styles/vault-theme.css (generated)           GPL-2.0, from the theme
+  public/fonts/*                                   SIL Open Font License 1.1
+
+  THIRD-PARTY.md sets out the division in full and carries the notices.
+
+WHAT YOU MAY DO WITH THE TEXT
+
+  * Share it -- copy and redistribute in any medium or format.
+  * Adapt it -- remix, translate, build upon it, run games in it, write in it.
+
+  For any purpose, including commercially.
+
+WHAT IS ASKED IN RETURN
+
+  * Attribution -- credit "Nia Tero Worldsmiths", link back to the source, and
+    say whether you changed anything. Credit in a way that does not suggest the
+    team endorses you or your use.
+  * ShareAlike -- if you remix or build upon it, distribute your contribution
+    under this same licence.
+
+  No additional restrictions: you may not apply legal terms or technological
+  measures that legally restrict others from doing anything this licence
+  permits.
+
+NOT COVERED BY THIS LICENCE
+
+  Game system terms that appear in the notes -- class and species names such as
+  Paladina, Clériga or Dragonborn -- are used referentially to describe
+  characters, not reproduced as rules. They belong to their respective owners
+  and are not licensed here.
+
+THE FULL TEXT IS THE BINDING ONE
+
+  This file summarises the licence for convenience. Where it differs from the
+  legal code linked above, the legal code governs. The text of Creative Commons
+  public licences is itself dedicated to the public domain under CC0.
