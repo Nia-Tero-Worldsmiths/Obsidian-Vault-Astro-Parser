@@ -1,7 +1,8 @@
 # Obsidian -> Astro vault parser configuration.
 #
-# Copy this file to `vault.config.yaml` and set `vault_root`. That copy is not
-# committed: it is the one place the pipeline is tied to a particular machine.
+# Copy this file to `vault.config.yaml`. It already points at the bundled
+# example vault, so the pipeline runs with no edits -- set `vault_root` to your
+# own vault when you have one.
 #
 # Paths are relative to this file (the project root) unless absolute.
 # The vault is READ-ONLY. The parser refuses to open it for writing and
@@ -13,7 +14,7 @@
 #
 # This is the only thing tying the parser to one particular vault -- point it
 # somewhere else and the whole pipeline runs against that vault instead.
-vault_root: C:/Users/you/Vaults/My Vault
+vault_root: examples/example-vault
 
 # Output destinations. `--clean` only ever touches these three.
 output:
@@ -91,16 +92,18 @@ modules:
   # Removes headings with nothing under them (the unfilled skeleton left by the
   # note templates). Recursive: a heading counts as empty only when every
   # heading nested beneath it is empty too. Runs after the query and map
-  # modules so it judges the finished document. Off by default: whether an
-  # empty heading is noise or an intentional placeholder is an editorial call.
+  # modules so it judges the finished document. Whether an empty heading is
+  # noise or an intentional placeholder is an editorial call.
   empty_headings:
-    enabled: false
+    enabled: true
     keep: []
   # Enforces `z_Assets/CREDITS.yaml`. An image whose origin does not permit
-  # publishing is replaced by a placeholder and never copied to `public/`.
-  # With no CREDITS.yaml present this filters nothing, so it is safe to enable
-  # before the file exists.
+  # publishing is replaced by a placeholder and never copied to `public/`. With
+  # no CREDITS.yaml present this filters nothing, so it is safe to enable
+  # before the file exists -- the example vault ships one, so this demonstrates
+  # a withheld image out of the box.
   image_licensing:
     enabled: true
     placeholder: true # false removes the image instead of marking the gap
+    lenient: false # true reports non-publishable images without withholding them
   graph: { enabled: true }
