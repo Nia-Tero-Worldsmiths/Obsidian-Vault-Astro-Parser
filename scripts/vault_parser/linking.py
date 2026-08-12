@@ -127,6 +127,27 @@ def is_asset_reference(target: str, config: Config) -> bool:
     return suffix in config.asset_extensions
 
 
+def resolve_image(target: str, ctx: VaultContext) -> tuple[str, Asset | None] | None:
+    """Resolve an image target to a `(url, asset)` pair, or None if unresolved.
+
+    Tries a real vault asset first, then a vendored icon-library SVG (Font
+    Awesome, RPG Awesome), inlined as a data URI -- the same treatment Module 8
+    gives map pin icons. `asset` is None for an icon: unlike a real asset,
+    nothing needs copying to `public/`, and callers must not add it to
+    `ctx.referenced_assets`.
+
+    Shared so Module 2 (here), Module 3's frontmatter embeds and Module 6's
+    query portraits all resolve `imagen: castle-flag.svg` the same way.
+    """
+    asset = ctx.find_asset(target)
+    if asset is not None:
+        return f"{ctx.config.asset_base_url}/{asset.out_name}", asset
+    icon = ctx.find_icon(target)
+    if icon is not None:
+        return icon, None
+    return None
+
+
 def resolve(ref: WikiRef, ctx: VaultContext) -> Resolution:
     """Resolve one reference against the vault index."""
     config = ctx.config
@@ -140,18 +161,16 @@ def resolve(ref: WikiRef, ctx: VaultContext) -> Resolution:
         return Resolution(LinkKind.EXTERNAL, label, url=target)
 
     if is_asset_reference(target, config):
-        asset = ctx.find_asset(target)
-        if asset is None:
+        resolved = resolve_image(target, ctx)
+        if resolved is None:
             return Resolution(LinkKind.ASSET_MISSING, label)
-        # Record the usage: whatever a module points an <img> at must be copied,
-        # even when the source text no longer shows the reference afterwards.
-        ctx.referenced_assets.add(asset.vault_path)
-        return Resolution(
-            LinkKind.ASSET,
-            label,
-            url=f"{config.asset_base_url}/{asset.out_name}",
-            asset=asset,
-        )
+        url, asset = resolved
+        if asset is not None:
+            # Record the usage: whatever a module points an <img> at must be
+            # copied, even when the source text no longer shows the reference
+            # afterwards. An icon needs no such record -- it is never copied.
+            ctx.referenced_assets.add(asset.vault_path)
+        return Resolution(LinkKind.ASSET, label, url=url, asset=asset)
 
     note = ctx.find_note(target)
     if note is None:

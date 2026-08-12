@@ -174,15 +174,17 @@ class DataviewQueriesModule(TransformModule):
         if refs:
             target = refs[0].target
 
-        asset = ctx.find_asset(target)
-        if asset is None:
+        resolved = linking.resolve_image(target, ctx)
+        if resolved is None:
             self.count("portrait unresolved")
             self.warn(f"{note.vault_path}: image not found for `{field}`: {target}")
             return ""
 
-        # Always copied, even for an unpublished note -- see the module docstring.
-        ctx.referenced_assets.add(asset.vault_path)
-        url = f"{ctx.config.asset_base_url}/{asset.out_name}"
+        url, asset = resolved
+        if asset is not None:
+            # Always copied, even for an unpublished note -- see the module
+            # docstring. An icon needs no such record -- it is never copied.
+            ctx.referenced_assets.add(asset.vault_path)
         self.count("portraits rendered")
 
         # `embed(link(imagen, "500x500"))` -- Obsidian reads an embed's display

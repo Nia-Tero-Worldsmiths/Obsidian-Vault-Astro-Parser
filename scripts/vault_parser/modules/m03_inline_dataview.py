@@ -102,14 +102,15 @@ class InlineDataviewModule(TransformModule):
         if refs:
             target = refs[0].target
 
-        asset = ctx.find_asset(target)
-        if asset is None:
+        resolved = linking.resolve_image(target, ctx)
+        if resolved is None:
             self.count("embed missing asset")
             self.warn(f"image not found for `{field}`: {target}")
             return ""
 
-        ctx.referenced_assets.add(asset.vault_path)
-        url = f"{ctx.config.asset_base_url}/{asset.out_name}"
+        url, asset = resolved
+        if asset is not None:
+            ctx.referenced_assets.add(asset.vault_path)
         alt = html.escape(note.title)
         return f'<img src="{html.escape(url)}" alt="{alt}" />'
 

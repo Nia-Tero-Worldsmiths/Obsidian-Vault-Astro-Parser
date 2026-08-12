@@ -86,6 +86,12 @@ def execute(
     copied, missing = assets_mod.copy_referenced(
         asset_index, referenced, config, dry_run=dry_run
     )
+    # A reference the asset index never held may still resolve as a vendored
+    # icon (Font Awesome, RPG Awesome) -- see `icons.py`. Those are inlined as
+    # data URIs by the modules that render them, never copied, and so must not
+    # be reported as missing.
+    if missing:
+        missing = [reference for reference in missing if ctx.find_icon(reference) is None]
     written = emit.write_notes(published, config, dry_run=dry_run)
     generated = emit.write_generated(ctx.generated, config, dry_run=dry_run)
 

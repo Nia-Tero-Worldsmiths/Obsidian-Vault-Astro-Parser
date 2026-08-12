@@ -121,6 +121,10 @@ class VaultContext:
     # where `collect_asset_references` reads from.
     blocked_assets: set[str] = field(default_factory=set)
 
+    # Lazily built on first `find_icon()` call; untyped to avoid a circular
+    # import (`icons.py` imports this module for `index_key`).
+    _icons: Any = field(default=None, repr=False, compare=False)
+
     def published_notes(self) -> list[Note]:
         return [n for n in self.notes if n.published]
 
@@ -137,6 +141,14 @@ class VaultContext:
 
     def find_asset(self, reference: str) -> Asset | None:
         return self.assets.get(index_key(reference))
+
+    def find_icon(self, reference: str) -> str | None:
+        """A vendored icon-library SVG, as a data URI -- see `icons.py`."""
+        if self._icons is None:
+            from . import icons
+
+            self._icons = icons.IconIndex(self.config)
+        return self._icons.find(reference)
 
 
 def index_key(value: str) -> str:
