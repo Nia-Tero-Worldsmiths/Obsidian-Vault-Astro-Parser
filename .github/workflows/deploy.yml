@@ -1,0 +1,196 @@
+# Build the site from a vault and upload it to Cloudflare Pages.
+#
+# Deliberately names no vault, no site and no domain: `VAULT_REPO` and
+# `CF_PROJECT` are repository variables. This file is the CI counterpart of
+# `vault_root` -- it keeps the one seam that ties a generic parser to one
+# person's content out of the committed tree.
+
+name: Build and deploy
+
+# Manual only for now. With `default_publish: false` most vault pushes cannot
+# change the site, so building on every push would mostly reproduce the same
+# bytes. Adding `schedule:` later is purely additive -- the fingerprint guard
+# below is what makes that safe.
+on:
+  workflow_dispatch:
+    inputs:
+      force_deploy:
+        description: "Deploy even when the build is identical to the last one"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+# Not cancel-in-progress: a cancelled job could be mid-upload to Cloudflare.
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+env:
+  VAULT_DIR: .vault
+  CI_CONFIG: vault.config.ci.yaml
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      # MUST be first: a checkout with no `path` cleans the workspace root and
+      # would delete a vault checked out before it.
+      - name: Check out the site repository
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+          show-progress: false
+
+      # `fetch-depth: 1` skips ~175 MB of history. Sparse-checkout is NOT worth
+      # it: icons.py walks z_Assets/Icons for inlined placeholder SVGs and
+      # credits.py reads z_Assets/CREDITS.yaml, so almost nothing is excludable.
+      - name: Check out the vault
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ vars.VAULT_REPO }}
+          ref: ${{ vars.VAULT_REF || 'main' }}
+          token: ${{ secrets.VAULT_TOKEN }}
+          path: ${{ env.VAULT_DIR }}
+          fetch-depth: 1
+          lfs: false
+          persist-credentials: false
+          show-progress: false
+
+      # extract_theme.py has no existence guard on the theme or custom.css, so
+      # without this a missing file surfaces as a raw traceback. Also the
+      # cheapest place to catch a Windows->Linux case mismatch, which would
+      # otherwise appear much later as a mysteriously empty parse.
+      - name: Verify the vault has what the pipeline needs
+        run: |
+          set -euo pipefail
+          missing=0
+          for f in \
+            ".obsidian/themes/ITS Theme/theme.css" \
+            ".obsidian/snippets/custom.css" \
+            "z_Assets/CREDITS.yaml"
+          do
+            if [ ! -f "$VAULT_DIR/$f" ]; then
+              echo "::error title=Vault incomplete::missing $f"
+              missing=1
+            fi
+          done
+          [ "$missing" -eq 0 ] || exit 1
+          echo "vault checkout: $(du -sh "$VAULT_DIR" | cut -f1)" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: scripts/requirements.txt
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          python -m pip install --disable-pip-version-check -r scripts/requirements.txt
+
+      # Produces src/styles/vault-theme.css, which BaseLayout.astro imports
+      # unconditionally and which is gitignored (it is the tree's only GPL-2.0
+      # file). Without this step `astro build` cannot resolve the import at all.
+      - name: Extract the vault theme
+        run: |
+          set -euo pipefail
+          python scripts/extract_theme.py -c "$CI_CONFIG" 2>&1 | tee theme.log
+          if grep -q '^WARNING:' theme.log; then
+            echo "::warning title=extract_theme::$(grep -A1 '^WARNING:' theme.log | tr '\n' ' ' | cut -c1-400)"
+          fi
+          # Non-fatal above: an upstream theme adding a variable should not
+          # block a deploy. A zero-byte write should, hence the check.
+          test -s src/styles/vault-theme.css
+          rm -f theme.log
+
+      # Produces src/content/, src/generated/ and public/vault-assets/ -- all
+      # gitignored, all required by content.config.ts and the layouts.
+      - name: Parse the vault
+        run: python -m scripts.vault_parser -c "$CI_CONFIG" --verbose
+
+      # The parser exits 0 with only a stderr warning when nothing is emitted,
+      # and Astro's glob loader merely warns on a missing collection directory.
+      # Without this guard a misconfiguration deploys a live, empty site.
+      - name: Guard against an empty parse
+        env:
+          MIN_NOTES: ${{ vars.MIN_NOTES || '40' }}
+        run: |
+          set -euo pipefail
+          notes=$(find src/content -type f -name '*.md' 2>/dev/null | wc -l)
+          assets=$(find public/vault-assets -type f 2>/dev/null | wc -l)
+          echo "notes: $notes / assets: $assets" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$notes" -lt "$MIN_NOTES" ]; then
+            echo "::error title=Empty parse::emitted $notes notes, minimum is $MIN_NOTES"
+            exit 1
+          fi
+
+      - name: Build the site
+        run: npm run build
+
+      # One hash over "every path, plus every file's contents". Robust to
+      # Astro's content-hashed filenames *because* the names are part of the
+      # hashed stream: a changed asset changes both its bytes and its name, and
+      # either alone flips the result. `sort -z` makes it independent of find's
+      # traversal order, which is not guaranteed stable across runners.
+      - name: Fingerprint the build
+        id: fingerprint
+        run: |
+          set -euo pipefail
+          hash=$(cd dist && find . -type f -print0 | sort -z \
+                 | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)
+          echo "hash=$hash" >> "$GITHUB_OUTPUT"
+          echo "build fingerprint: \`$hash\`" >> "$GITHUB_STEP_SUMMARY"
+
+      # The cache KEY is the fingerprint, so a hit means this exact build has
+      # already been uploaded. Cheaper than interrogating Cloudflare, and
+      # fail-safe by construction: an evicted cache causes a redundant deploy,
+      # never a suppressed one.
+      - name: Has this build already been deployed?
+        id: seen
+        uses: actions/cache/restore@v4
+        with:
+          path: .deployed
+          key: deployed-${{ steps.fingerprint.outputs.hash }}
+          lookup-only: true
+
+      - name: Deploy to Cloudflare Pages
+        if: steps.seen.outputs.cache-hit != 'true' || inputs.force_deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          # `--branch` must match the project's production branch. Anything else
+          # is filed as a *preview* deployment: the run goes green and the live
+          # site never changes, which is the most confusing possible failure.
+          command: >-
+            pages deploy dist
+            --project-name=${{ vars.CF_PROJECT }}
+            --branch=${{ vars.CF_PRODUCTION_BRANCH || 'main' }}
+
+      - name: Remember this build as deployed
+        if: steps.seen.outputs.cache-hit != 'true' || inputs.force_deploy
+        run: |
+          mkdir -p .deployed
+          date -u +%FT%TZ > .deployed/at
+
+      - name: Save the deployed fingerprint
+        if: steps.seen.outputs.cache-hit != 'true' || inputs.force_deploy
+        uses: actions/cache/save@v4
+        with:
+          path: .deployed
+          key: deployed-${{ steps.fingerprint.outputs.hash }}
+
+      - name: Report a skipped deploy
+        if: steps.seen.outputs.cache-hit == 'true' && !inputs.force_deploy
+        run: echo "build identical to the last deploy -- nothing uploaded" >> "$GITHUB_STEP_SUMMARY"

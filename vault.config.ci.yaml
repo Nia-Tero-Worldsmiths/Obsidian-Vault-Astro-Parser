@@ -1,0 +1,112 @@
+# Obsidian -> Astro vault parser configuration, for CI.
+#
+# Used by `.github/workflows/deploy.yml` and nothing else. It is a copy of
+# `vault.config.example.yaml` differing in exactly one line -- `vault_root` --
+# so **keep the two in step**: anything changed there should be changed here.
+#
+# Deliberately names no vault. `.vault` is just where the workflow checks one
+# out; *which* vault that is comes from the `VAULT_REPO` repository variable.
+# That is what keeps this repository the generic tool rather than one person's
+# site, exactly as `vault_root` does for a local run.
+#
+# Paths are relative to this file (the project root) unless absolute.
+# The vault is READ-ONLY. The parser refuses to open it for writing and
+# refuses to emit anything inside it.
+
+# Where the workflow checks the vault out. Dot-prefixed and at the project
+# root: outside all three output directories below (so the "no output inside
+# the vault" guard cannot fire) and invisible to Astro, which only scans
+# `src/`, `public/` and root config files.
+vault_root: .vault
+
+# Output destinations. `--clean` only ever touches these three.
+output:
+  content: src/content # markdown, one dir per collection
+  generated: src/generated # sidecar JSON (nav tree, graph)
+  assets: public/vault-assets # copied images
+
+# Public URL prefix under which `assets` is served.
+asset_base_url: /vault-assets
+
+# Top-level vault folder -> Astro collection name.
+# Anything not listed here is ignored.
+collections:
+  World Atlas: atlas
+  World Encyclopedia: encyclopedia
+  Prosa: prosa
+
+# Vault-relative directory names never descended into, at any depth.
+ignore_dirs:
+  - .obsidian
+  - .git
+  - .trash
+  - z_Templates
+  - z_Assets
+  - ZoomMap
+
+# Glob patterns (matched against each path segment) that are skipped.
+# `_*` is this vault's own spoiler convention.
+ignore_globs:
+  - _*
+
+# Publish gate.
+#   default_publish: false -> opt-in. A note needs `publish: true` to be emitted.
+#   default_publish: true  -> opt-out. Everything is emitted unless `publish: false`.
+# Flip to true for a full local preview of the vault.
+default_publish: false
+
+# The run report lists notes whose frontmatter never decides `publish` either
+# way, as a data-hygiene check. Notes with fewer than this many non-blank body
+# lines are treated as unstarted stubs and left out of that list, as are notes
+# with no frontmatter at all.
+publish_hint_min_lines: 4
+
+# Image extensions treated as assets and copied to `output.assets`.
+asset_extensions:
+  - .png
+  - .jpg
+  - .jpeg
+  - .webp
+  - .gif
+  - .svg
+
+# Directories under the vault whose images are vendored libraries, not content.
+# Never copied even when referenced.
+asset_exclude_dirs:
+  - z_Assets/Icons
+
+# Transform modules, in pipeline order. Module 1 (ingest) is the core and is
+# not listed here; it always runs. Order matters where noted.
+modules:
+  # Must stay first: Obsidian strips comments before parsing block structure,
+  # so a `%%comment%%` inside a callout would otherwise split the block.
+  comments: { enabled: true }
+  links: { enabled: true }
+  inline_dataview: { enabled: true }
+  callouts: { enabled: true }
+  # Inline tags become Obsidian-style pills. `hidden_tags` are dropped instead:
+  # they are notes-to-self about the writing, not content.
+  cleanup:
+    enabled: true
+    hidden_tags: [WIP, Borrar, Cambiar, TODO]
+  dataview_queries: { enabled: true }
+  nav_tree: { enabled: true }
+  zoommap: { enabled: true }
+  # Removes headings with nothing under them (the unfilled skeleton left by the
+  # note templates). Recursive: a heading counts as empty only when every
+  # heading nested beneath it is empty too. Runs after the query and map
+  # modules so it judges the finished document. Whether an empty heading is
+  # noise or an intentional placeholder is an editorial call.
+  empty_headings:
+    enabled: true
+    keep: []
+  # Enforces `z_Assets/CREDITS.yaml`. An image whose origin does not permit
+  # publishing is replaced by a placeholder and never copied to `public/`. With
+  # no CREDITS.yaml present this filters nothing, so it is safe to enable
+  # before the file exists -- the example vault ships one, so this demonstrates
+  # a withheld image out of the box.
+  image_licensing:
+    enabled: true
+    placeholder: true # false removes the image instead of marking the gap
+    lenient: false # true reports non-publishable images without withholding them
+  graph: { enabled: true }

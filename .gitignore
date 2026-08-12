@@ -24,9 +24,11 @@ pnpm-debug.log*
 .idea/
 
 # The vault itself is never committed here. It lives outside the project
-# (see `vault_root` in vault.config.yaml); this entry only guards against a
-# symlink being put back at the old location.
+# (see `vault_root` in vault.config.yaml); these entries only guard against a
+# symlink being put back at the old location, or against a local rehearsal of
+# the CI layout -- `.vault` is where deploy.yml checks the vault out.
 src/vault
+.vault
 
 # python environment for scripts/vault_parser
 .venv/

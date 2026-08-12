@@ -56,6 +56,7 @@ the output layout itself.
 | `--clean` | remove previous output first |
 | `--verbose` / `-v` | full problem lists instead of the first 10 |
 | `--only NAME` | run only these modules, ignoring config (repeatable) |
+| `--also NAME` | enable these modules *alongside* the configured set (repeatable) |
 | `--skip NAME` | disable these modules for this run (repeatable) |
 | `--list-modules` | show every registered module and its state |
 | `--config PATH` | use a different `vault.config.yaml` |
@@ -68,6 +69,63 @@ Exit codes: `0` ok, `2` bad config or arguments, `3` a safety guard fired
 ```bash
 python -m venv .venv && .venv/Scripts/python -m pip install -r scripts/requirements.txt
 ```
+
+## Deploying from CI
+
+`.github/workflows/deploy.yml` runs the whole pipeline on a GitHub runner and
+uploads the result to Cloudflare Pages. It is manual (`workflow_dispatch`):
+with `default_publish: false` most vault edits touch unpublished notes and
+cannot change the site, so building on every push would mostly reproduce
+identical bytes.
+
+**The workflow names no vault, no site and no domain.** Those live in
+repository variables, which is what keeps this repository the generic tool:
+
+| Variable | Purpose |
+|---|---|
+| `VAULT_REPO` | `owner/repo` of the vault to build |
+| `VAULT_REF` | vault branch/tag/SHA (default `main`) |
+| `CF_PROJECT` | Cloudflare Pages project name |
+| `CF_PRODUCTION_BRANCH` | must match the project's production branch (default `main`) |
+| `MIN_NOTES` | floor for the empty-parse guard (default `40`) |
+
+Secrets: `VAULT_TOKEN` (contents-read on the vault repo), `CLOUDFLARE_API_TOKEN`
+(Pages: Edit) and `CLOUDFLARE_ACCOUNT_ID`.
+
+`vault.config.ci.yaml` is the config it runs with -- a copy of
+`vault.config.example.yaml` differing only in `vault_root: .vault`, the
+directory the workflow checks the vault out into. **Keep the two in step.**
+`.vault` is deliberately outside all three output directories, so the "no
+output inside the vault" guard cannot fire, and dot-prefixed so Astro ignores it.
+
+Two guards matter more than they look:
+
+- **Empty-parse guard.** The parser exits `0` with only a stderr warning when
+  nothing is emitted, and Astro's glob loader merely *warns* on a missing
+  collection directory. Without a floor on the note count, a misconfiguration
+  deploys a live, empty site instead of failing.
+- **Fingerprint guard.** A hash over every path and its contents in `dist/`,
+  used as an Actions cache key; a hit means this exact build already shipped, so
+  the upload is skipped. It only works because the build is **reproducible** --
+  see below.
+
+### Reproducible builds
+
+Two clean builds of an unchanged vault must produce byte-identical `dist/`.
+That is what lets CI tell "nothing changed" from "something changed", and it is
+easy to break: anything per-render and non-deterministic (a `Math.random()` id,
+an embedded timestamp) makes every page differ on every build. `GraphView.astro`
+derives its instance id from the mode for exactly this reason.
+
+Check it after touching any component:
+
+```bash
+npx astro build && (cd dist && find . -type f -print0 | sort -z \
+  | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)
+```
+
+Run it twice; the two hashes must match. The same one-liner compares a local
+build against CI's, which prints its fingerprint to the job summary.
 
 ## Output
 
@@ -123,6 +181,17 @@ data-URI SVGs and so need no copying. The rendered world is sized in the
 image's **natural pixels**, because that is what the plugin's zoom levels mean:
 `maxZoom: 1` is 100% of the source, not "fit the container". Sizing to the
 container instead would make Tambler's `maxZoom: 1` un-magnifiable.
+
+`icons.py` gives an `imagen:` frontmatter value the same treatment when it
+names a file under `asset_exclude_dirs` (the vendored Font Awesome / RPG
+Awesome packs) rather than a real vault asset -- inlined as a data URI,
+never copied. `linking.resolve_image()` is the shared lookup: a real asset
+first, an icon second, `None` if neither matches. Modules 2, 3 and 6 all
+route through it, so `imagen: castle-flag.svg` resolves the same way whether
+it appears as a body embed, an infobox field, or a query portrait. The name
+index (a directory listing) is built once per run on first use; a file's
+bytes are only read for names actually referenced, since the vault carries
+~2500 of these and none but the referenced ones are content.
 
 `graph` emits `src/generated/graph.json` -- nodes, edges, per-note backlinks,
 and appearance copied from the vault's `.obsidian/graph.json` (the five

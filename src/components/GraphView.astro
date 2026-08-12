@@ -24,7 +24,14 @@ const loaded = import.meta.glob<{ nodes: any[]; edges: any[]; settings: any }>(
   { eager: true, import: "default" },
 );
 const graph = Object.values(loaded)[0] ?? { nodes: [], edges: [], settings: {} };
-const id = `graph-${Math.random().toString(36).slice(2, 8)}`;
+
+// Pairs the <figure> with its JSON payload below, so the client script can find
+// the data belonging to each instance. Derived from the mode rather than
+// randomised: a page carries at most one graph of each mode (the sidebar is
+// always compact, `/grafo` adds the full one), so this is unique where it needs
+// to be -- and unlike `Math.random()` it makes the build reproducible, which is
+// what lets CI recognise an unchanged site and skip redeploying it.
+const id = compact ? "graph-compact" : "graph-full";
 ---
 
 {
