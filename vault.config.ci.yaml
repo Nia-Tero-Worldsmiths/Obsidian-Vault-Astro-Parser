@@ -1,8 +1,15 @@
 # Obsidian -> Astro vault parser configuration, for CI.
 #
-# Used by `.github/workflows/deploy.yml` and nothing else. It is a copy of
-# `vault.config.example.yaml` differing in exactly one line -- `vault_root` --
-# so **keep the two in step**: anything changed there should be changed here.
+# Used by `.github/workflows/deploy.yml` and nothing else. CI and a local run
+# build the same vault, so this should differ from `vault.config.yaml` in
+# `vault_root` alone -- **keep the two in step.**
+#
+# It also tracks `vault.config.example.yaml`, but only up to a point: fields
+# that are just structural (`collections`, `hidden_tags`, `i18n.languages`)
+# happen to match the bundled example and should stay that way, but fields
+# that name a real file (`fallback_images`) legitimately differ -- the
+# example vault's placeholder is not a file the real vault has, or vice versa.
+# Diffing this against `vault.config.yaml` is the more meaningful check.
 #
 # Deliberately names no vault. `.vault` is just where the workflow checks one
 # out; *which* vault that is comes from the `VAULT_REPO` repository variable.
