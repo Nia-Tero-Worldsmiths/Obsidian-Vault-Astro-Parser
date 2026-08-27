@@ -1,4 +1,4 @@
-"""Module 1b -- Obsidian comments.
+"""Obsidian comments.
 
 Strips `%%...%%`, which Obsidian hides from readers. 92 spans across 49 notes,
 most of them unfinished section headings the author parked for later
@@ -20,7 +20,7 @@ precisely what happened before this module existed. Three callouts vault-wide
 hit this, one of them on a published page.
 
 The same argument applies to links: a commented-out `[[wikilink]]` must not
-become a real link, so comments have to go before Module 2 as well.
+become a real link, so comments have to go before `links` as well.
 """
 
 from __future__ import annotations

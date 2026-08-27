@@ -4,7 +4,7 @@ Pass 1 (`ingest`) walks and indexes everything, so that pass 2 can resolve
 references between notes without a second walk. Pass 2 runs each published note
 through the module pipeline and emits it.
 
-Unpublished notes stay in the index -- Module 2 needs to know a link points at
+Unpublished notes stay in the index -- `links` needs to know a link points at
 a real-but-unpublished note in order to render it as plain text rather than as
 a dead link.
 """

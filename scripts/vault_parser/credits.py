@@ -2,7 +2,7 @@
 
 `z_Assets/CREDITS.yaml` records where each image came from and, through
 `policy`, whether that origin may be published. This module only reads and
-resolves it; Module 8c decides what to do with the answer.
+resolves it; `image_licensing` decides what to do with the answer.
 
 The file is authored by hand, so everything here is tolerant: a missing file, a
 missing row, an unknown origin and a malformed entry all resolve to something

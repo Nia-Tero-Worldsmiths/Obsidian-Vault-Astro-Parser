@@ -1,4 +1,4 @@
-"""Module 6 -- Fenced dataview queries.
+"""Fenced dataview queries.
 
 Runs each ```dataview block against the note index **at parse time** and emits
 static markup. No dataview, and no query engine of any kind, reaches the
@@ -28,6 +28,7 @@ import re
 
 from .. import dataview, linking
 from ..dataview import Column, Query, UnsupportedQuery
+from ..infobox import normalize_type_key
 from ..model import Note, VaultContext, index_key
 from ..slugs import natural_key
 from .base import TransformModule
@@ -165,11 +166,19 @@ class DataviewQueriesModule(TransformModule):
         size: tuple[int, int | None] | None = None,
     ) -> str:
         raw = note.frontmatter.get(field)
-        if not isinstance(raw, str) or not raw.strip():
-            self.count("portrait missing")
-            return ""
-
-        target = raw.strip()
+        if isinstance(raw, str) and raw.strip():
+            target = raw.strip()
+        else:
+            # A roster row for someone with no portrait. The stand-in is keyed
+            # on the *subject's* NoteType, not the page the table sits on --
+            # this is a list of people whichever note is showing it.
+            target = ctx.config.fallback_images.get(
+                normalize_type_key(note.frontmatter.get("NoteType"))
+            )
+            if not target:
+                self.count("portrait missing")
+                return ""
+            self.count("portraits filled from fallback_images")
         refs = linking.parse_refs(target)
         if refs:
             target = refs[0].target

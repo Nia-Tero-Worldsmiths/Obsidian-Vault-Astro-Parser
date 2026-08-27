@@ -41,7 +41,7 @@ FROM "World Encyclopedia"
 WHERE contains(file.name, "Ejemplo")
 ```
 
-%% A comment. Module 1b strips this before anything else parses the note,
+%% A comment. The `comments` module strips this before anything else parses the note,
    which is why a comment inside a callout does not split the block. %%
 
 Inline queries also resolve: this town is in `= this.file.folder`.

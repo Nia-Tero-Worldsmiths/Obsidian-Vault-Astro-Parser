@@ -4,7 +4,7 @@ The plugin stores a map in three places: the ```zoommap fence in the note (which
 image, which layers, zoom limits), a sibling `*.markers.json` (the pins, in
 normalised 0-1 coordinates), and the plugin's own `data.json` (the icon set, as
 self-contained data-URI SVGs). This module gathers all three; rendering is
-Module 8's job.
+`zoommap`'s job.
 
 Everything here reads through `vault.read_text`, including the files under
 `.obsidian/` -- those are outside the note walk's `ignore_dirs`, but they are

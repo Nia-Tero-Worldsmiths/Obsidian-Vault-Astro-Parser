@@ -3,7 +3,7 @@
 `assets.py` deliberately keeps these out of the copyable-asset index -- the
 vault carries ~2500 of them and none are content. A note can still *use* one as
 a placeholder image, though (`imagen: castle-flag.svg`), and when it does this
-module gives it the same treatment Module 8 gives map pin icons: read once,
+module gives it the same treatment `zoommap` gives map pin icons: read once,
 inlined as a self-contained data URI, never copied to `public/`.
 
 The index of *names* is built once (a directory listing, no file contents

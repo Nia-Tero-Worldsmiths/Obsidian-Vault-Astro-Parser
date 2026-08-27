@@ -11,7 +11,7 @@ from typing import Any
 class WikiRef:
     """A parsed `[[target|alias]]` reference, wherever it was found.
 
-    Module 1 only records these; Module 2 resolves them. `raw` is the exact
+    `ingest` only records these; `links` resolves them. `raw` is the exact
     source text so a resolver can do a literal replacement without re-parsing.
     """
 
@@ -23,8 +23,8 @@ class WikiRef:
     is_embed: bool = False
     # Frontmatter key this came from, or None if it came from the body.
     origin_key: str | None = None
-    # Set by Module 2 (a `linking.Resolution`). Untyped to avoid a circular
-    # import; Modules 3 and 6 read it instead of resolving again.
+    # Set by `links` (a `linking.Resolution`). Untyped to avoid a circular
+    # import; `inline_dataview` and `dataview_queries` read it instead of resolving again.
     resolution: Any = None
 
     @property
@@ -50,7 +50,7 @@ class Asset:
 class Note:
     """One markdown note, mutated as it travels down the pipeline."""
 
-    # --- identity, set by Module 1 -------------------------------------
+    # --- identity, set by `ingest` -------------------------------------
     vault_path: str  # POSIX, vault-relative, e.g. "World Atlas/.../Luma.md"
     source: Path  # absolute, inside the vault
     collection: str  # Astro collection name
@@ -65,10 +65,23 @@ class Note:
     raw_body: str = ""  # body as it appeared in the vault, never mutated
     body: str = ""  # mutated by each module in turn
 
+    # --- languages ----------------------------------------------------
+    # Filled by `lang_blocks` (order 15) when the note carries `:::lang`
+    # markers. `body` always mirrors the default language's entry, so every
+    # module written before i18n existed keeps working untouched; the pipeline
+    # driver runs each module once per entry here. Empty means monolingual.
+    lang_bodies: dict[str, str] = field(default_factory=dict)
+    #: Codes this note actually has content for, in configured order.
+    languages: list[str] = field(default_factory=list)
+    #: Which language `body` currently holds. The pipeline sets this around
+    #: each per-language pass so a module can resolve `key_<lang>` frontmatter
+    #: or pick a translated link label without being handed a new signature.
+    active_language: str = ""
+
     # --- derived ------------------------------------------------------
     aliases: list[str] = field(default_factory=list)
     tags: list[str] = field(default_factory=list)
-    # Wikilinks found inside YAML values, for Module 2.
+    # Wikilinks found inside YAML values, for `links`.
     frontmatter_refs: list[WikiRef] = field(default_factory=list)
     published: bool = False
     warnings: list[str] = field(default_factory=list)
@@ -111,7 +124,7 @@ class VaultContext:
 
     # Vault paths of assets any module resolved during the run. Modules can
     # surface images that a raw scan of the source text would never find --
-    # Module 6's queries embed images taken from *other* notes' frontmatter --
+    # `dataview_queries`'s queries embed images taken from *other* notes' frontmatter --
     # so resolution records usage here and the emitter copies the union.
     referenced_assets: set[str] = field(default_factory=set)
 

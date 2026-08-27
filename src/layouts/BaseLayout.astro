@@ -28,15 +28,19 @@ import "../styles/vault-theme.css";
 // base.css, and the reason the two are separate files.
 import "../styles/site-overrides.css";
 
+import LanguageBar from "../components/LanguageBar.astro";
+
 interface Props {
   title: string;
   breadcrumb?: string[];
   currentSlug?: string;
+  /** Language codes the note carries. Absent or single = monolingual. */
+  languages?: string[];
   /** Vault `cssclasses` frontmatter, e.g. ["cards", "cards-cols-2"]. */
   cssclasses?: string | string[];
 }
 
-const { title, breadcrumb = [], currentSlug, cssclasses } = Astro.props;
+const { title, breadcrumb = [], currentSlug, cssclasses, languages = [] } = Astro.props;
 
 // Obsidian applies a note's `cssclasses` to the view container, and both
 // Cards.css and custom.css are written against that: `.cards table.dataview`
@@ -58,8 +62,24 @@ const generated = import.meta.glob<{ children: any[] }>(
 const navTree = Object.values(generated)[0] ?? { children: [] };
 ---
 
-<html lang="es">
+<html lang="es" data-lang="es">
   <head>
+    <!-- Applies the reader's stored language before first paint.
+         This has to be inline and blocking: the page ships every
+         language at once and CSS hides the others, so a deferred script
+         would let Spanish flash on screen for a reader who chose
+         Japanese. It also fixes `<html lang>` for screen readers. -->
+    <script is:inline>
+      try {
+        var stored = localStorage.getItem("nia-tero-lang");
+        if (stored) {
+          document.documentElement.setAttribute("data-lang", stored);
+          if (stored !== "ALL") document.documentElement.lang = stored;
+        }
+      } catch (e) {
+        /* storage disabled; the default language stands */
+      }
+    </script>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -102,6 +122,10 @@ const navTree = Object.values(generated)[0] ?? { children: [] };
         }
         <slot />
       </main>
+      {/* Its own column, so it never overlaps the text it belongs to.
+          Below 60rem the grid collapses and it returns to the flow
+          above the article, which is where the plugin puts it. */}
+      <LanguageBar languages={languages} />
     </div>
     {/* Outside `.app` so it spans the full width under both columns, and out of
         `.markdown-rendered` so the theme's prose rules do not reach it. */}
@@ -185,13 +209,23 @@ const navTree = Object.values(generated)[0] ?? { children: [] };
 
   .app {
     display: grid;
-    grid-template-columns: minmax(0, 17rem) minmax(0, 52rem);
-    gap: 2.5rem;
+    /* Third column is the language rail. `auto` rather than a fixed width so
+       it takes only what the pills need, and collapses to nothing on a note
+       that has just one language. */
+    grid-template-columns: minmax(0, 17rem) minmax(0, 52rem) auto;
+    /* The rail sits close to the text it applies to, so it reads as part of
+       the article rather than as a second sidebar. The column gap is that
+       short distance; the sidebar buys its own wider gutter back with a
+       margin, which keeps the content column in exactly the place the
+       appearance checks measured it. */
+    column-gap: 0.75rem;
+    row-gap: 2.5rem;
     justify-content: center;
     padding: 2rem 1.5rem 4rem;
   }
 
   .sidebar {
+    margin-right: 1.75rem; /* 0.75 + 1.75 = the 2.5rem gutter it always had */
     position: sticky;
     top: 2rem;
     align-self: start;
@@ -242,6 +276,39 @@ const navTree = Object.values(generated)[0] ?? { children: [] };
   @media (max-width: 60rem) {
     .app {
       grid-template-columns: minmax(0, 1fr);
+    }
+
+    /* No room for a rail: the bar goes back above the article and stays
+       pinned there while the note scrolls -- where Obsidian puts it, and the
+       only place Obsidian allows. Rows are stated explicitly so the bar
+       cannot land in the same cell as the article. */
+    .sidebar {
+      grid-row: 1;
+      /* One column now, so the gutter it was compensating for is gone. */
+      margin-right: 0;
+    }
+
+    .lang-rail {
+      grid-row: 2;
+      position: static;
+    }
+
+    main {
+      grid-row: 3;
+    }
+
+    .lang-bar {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      margin: 0 0 1rem;
+    }
+
+    /* Horizontal again: stacked pills would eat the vertical space the
+       article needs, and here the bar has the full width to itself. */
+    .lang-rail .lang-bar {
+      flex-direction: row;
+      align-items: center;
     }
 
     .sidebar {

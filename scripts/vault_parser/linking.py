@@ -1,7 +1,7 @@
 """Shared wikilink resolution and rendering.
 
-Module 2 rewrites body links, Module 3 renders frontmatter links inside
-`=this.field` substitutions, and Module 6 renders query results -- all three
+`links` rewrites body links, `inline_dataview` renders frontmatter links inside
+`=this.field` substitutions, and `dataview_queries` renders query results -- all three
 must agree on what `[[Capital del Mar]]` resolves to and how it looks. That
 agreement lives here rather than in any one module.
 
@@ -131,12 +131,12 @@ def resolve_image(target: str, ctx: VaultContext) -> tuple[str, Asset | None] | 
     """Resolve an image target to a `(url, asset)` pair, or None if unresolved.
 
     Tries a real vault asset first, then a vendored icon-library SVG (Font
-    Awesome, RPG Awesome), inlined as a data URI -- the same treatment Module 8
+    Awesome, RPG Awesome), inlined as a data URI -- the same treatment `zoommap`
     gives map pin icons. `asset` is None for an icon: unlike a real asset,
     nothing needs copying to `public/`, and callers must not add it to
     `ctx.referenced_assets`.
 
-    Shared so Module 2 (here), Module 3's frontmatter embeds and Module 6's
+    Shared so `links` (here), `inline_dataview`'s frontmatter embeds and `dataview_queries`'s
     query portraits all resolve `imagen: castle-flag.svg` the same way.
     """
     asset = ctx.find_asset(target)

@@ -11,7 +11,7 @@ real cases from this vault drive the design:
         silently destroying the wikilink.
 
 So bare `[[...]]` values are quoted *before* parsing, which both fixes the
-error and preserves the link text for Module 2 to resolve later.
+error and preserves the link text for `links` to resolve later.
 """
 
 from __future__ import annotations
@@ -46,7 +46,7 @@ _NOT_A_LINK = object()
 
 
 class FrontmatterResult:
-    """Parsed frontmatter plus everything Module 1 needs to report on it."""
+    """Parsed frontmatter plus everything `ingest` needs to report on it."""
 
     __slots__ = ("data", "body", "refs", "warnings", "had_frontmatter")
 
@@ -107,12 +107,60 @@ def parse(text: str) -> FrontmatterResult:
     )
 
 
+# A single-line flow sequence, i.e. `[a, b]`. The lookarounds keep
+# `[[Wikilink]]` out: the inner bracket is preceded by `[`, and the outer one is
+# followed by `[`, which the character class cannot match.
+_FLOW_SEQUENCE = re.compile(r"(?<!\[)\[([^\[\]\n]*)\](?!\])")
+
+# A bare key carrying the infobox layout's optional-row marker, e.g.
+# `subclase?`. Only meaningful in the translation table, but normalising it
+# here keeps one definition of "what PyYAML needs help with".
+_OPTIONAL_ITEM = re.compile(r"^[\w.-]+\?$")
+
+
+def normalize_flow_sequences(text: str) -> str:
+    """Rewrite a flow sequence into something PyYAML will accept.
+
+    Two shapes the vault writes are legal to Obsidian's YAML parser and
+    rejected by PyYAML, and both matter:
+
+    * **A hole.** The infobox pairs keys by position, so
+      `clase: [Kineticista, Guardiana]` with `subclase: [, Tierra]` means the
+      subclass belongs to the *second* class -- the spelling the vault's own
+      translation table documents. PyYAML refuses an empty item outright, and
+      because `parse` treats an unparseable block as empty, such a note would
+      lose its whole frontmatter, `publish` included, and drop off the site
+      without a word. An explicit `null` means the same thing and parses.
+
+    * **The optional-row marker,** `[clase, subclase?]`. `?` is an indicator
+      character in flow context; quoting it keeps the value identical.
+
+    Same move as `_sanitize` makes for bare wikilinks: meet the vault where it
+    is, rather than asking it to be edited to suit one of its two readers.
+    """
+
+    def fix(match: "re.Match[str]") -> str:
+        items = [item.strip() for item in match.group(1).split(",")]
+        if len(items) == 1 and not items[0]:
+            return "[]"  # an empty list, not a one-element list of nothing
+        rendered = [
+            "null"
+            if not item
+            else (f'"{item}"' if _OPTIONAL_ITEM.match(item) else item)
+            for item in items
+        ]
+        return "[" + ", ".join(rendered) + "]"
+
+    return _FLOW_SEQUENCE.sub(fix, text)
+
+
 def _sanitize(raw: str) -> tuple[str, int]:
     """Quote bare `[[...]]` and `![[...]]` values so PyYAML accepts them."""
     lines = raw.split("\n")
     quoted = 0
 
     for index, line in enumerate(lines):
+        lines[index] = line = normalize_flow_sequences(line)
         match = _BARE_LINK_VALUE.match(line.rstrip("\r"))
         if not match:
             continue
@@ -170,8 +218,20 @@ def _clean_value(value: Any) -> Any:
             return recovered
 
         items = [_clean_value(item) for item in value]
-        items = [item for item in items if item is not None and item != []]
-        return items or None
+        items = [item for item in items if item != []]
+
+        # Interior holes are KEPT, as None. The infobox pairs keys by
+        # position, so `clase: [Kineticista, Guardiana]` with
+        # `subclase: [, Tierra]` means the subclass belongs to the *second*
+        # class; squeezing the gap out would silently attach it to the first.
+        # Consumers that want plain strings filter None themselves --
+        # `_string_list` here, `inline_dataview` and `dataview_queries` for
+        # rendering.
+        #
+        # A list that is nothing but holes still says nothing at all.
+        if not any(item is not None for item in items):
+            return None
+        return items
 
     if isinstance(value, dict):
         cleaned = {str(k): _clean_value(v) for k, v in value.items()}
@@ -203,7 +263,7 @@ def collect_refs(data: dict[str, Any], *, origin: str | None = None) -> list[Wik
 
     Notes reference each other through YAML as much as through prose --
     `lugarNacimiento`, `organizacion`, `padre`, `anterior`, `siguiente` are all
-    links -- so Module 2 needs these alongside the body ones.
+    links -- so `links` needs these alongside the body ones.
     """
     refs: list[WikiRef] = []
 

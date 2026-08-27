@@ -1,0 +1,122 @@
+---
+/**
+ * Language switcher and "not translated yet" notice.
+ *
+ * The parser emits every language a note carries into the same page: content
+ * common to all of them once, and whatever differs inside
+ * `<div class="lang-section" data-lang="...">`. Switching is therefore only a
+ * matter of setting `data-lang` on `<html>` and letting CSS hide the rest --
+ * what the plugin does inside Obsidian, where `.ml-language-hidden
+ * { display: none }` is the entire mechanism.
+ *
+ * **No `ALL` pill.** The plugin offers one, and it earns its place there: an
+ * author wants to see every language at once while writing. A reader does not
+ * -- to them it is the same page printed three times, which reads as a bug.
+ * The parser and the CSS still understand `ALL`, so it remains available by
+ * setting the stored value by hand for debugging; it is simply not offered.
+ *
+ * **Where this deliberately differs from the plugin.** In Obsidian a note with
+ * no block for the active language renders blank, which is fine for an author
+ * who knows why. On a public site it is a dead end, so an untranslated note
+ * shows its default language with the notice below saying so. That needs no
+ * markup: shared content sits outside every wrapper, so nothing hides it.
+ */
+interface Props {
+  /** Codes this note carries, in configured order. */
+  languages?: string[];
+}
+
+const { languages = [] } = Astro.props;
+
+// Kept in step with `i18n.languages` in vault.config.yaml by hand. There is no
+// generated artifact for it yet: the parser writes per-note codes into
+// frontmatter, not a site-wide list.
+const LABELS: Record<string, string> = {
+  es: "Español",
+  ja: "日本語",
+  en: "English",
+};
+
+// Written in the language being asked for, so the reader who switched can read
+// the reason they did not get what they asked for.
+const NOTICES: Record<string, string> = {
+  es: "Esta nota todavía no está traducida. Se muestra en español.",
+  ja: "このノートはまだ翻訳されていません。スペイン語で表示しています。",
+  en: "This note has not been translated yet. Showing the Spanish original.",
+};
+
+const showBar = languages.length > 1;
+---
+
+{
+  showBar && (
+    <div class="lang-rail">
+      <div class="lang-bar" role="group" aria-label="Idioma de la nota">
+        {languages.map((code) => (
+          <button type="button" class="lang-pill" data-lang-pick={code}>
+            {LABELS[code] ?? code}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+{/* Always emitted, on every note. The script decides whether it applies, so
+    the same markup covers a monolingual note and a partly translated one. */}
+<p
+  class="lang-fallback"
+  role="status"
+  hidden
+  data-lang-available={(languages.length > 0 ? languages : ["es"]).join(" ")}
+  data-lang-notices={JSON.stringify(NOTICES)}
+>
+</p>
+
+<script>
+  // The active language lives on <html data-lang>, is persisted, and is
+  // applied before first paint by an inline script in BaseLayout -- without
+  // that, every page would flash Spanish before switching.
+  const KEY = "nia-tero-lang";
+  const root = document.documentElement;
+
+  const notice = document.querySelector<HTMLElement>(".lang-fallback");
+  const available = new Set((notice?.dataset.langAvailable ?? "es").split(" "));
+  const notices: Record<string, string> = JSON.parse(
+    notice?.dataset.langNotices ?? "{}",
+  );
+  const pills = [...document.querySelectorAll<HTMLButtonElement>("[data-lang-pick]")];
+
+  function apply(code: string) {
+    root.setAttribute("data-lang", code);
+    if (code !== "ALL") root.lang = code;
+    try {
+      localStorage.setItem(KEY, code);
+    } catch {
+      // Private browsing, or storage disabled. The choice then lasts for this
+      // page only, which is better than failing the click.
+    }
+
+    for (const pill of pills) {
+      const active = pill.dataset.langPick === code;
+      pill.classList.toggle("lang-pill--active", active);
+      pill.setAttribute("aria-pressed", String(active));
+    }
+
+    // Say so when the reader is looking at a language the note does not have.
+    if (notice) {
+      const missing = code !== "ALL" && !available.has(code);
+      notice.hidden = !missing;
+      if (missing) notice.textContent = notices[code] ?? notices.en ?? "";
+    }
+  }
+
+  for (const pill of pills) {
+    pill.addEventListener("click", () => apply(pill.dataset.langPick ?? "es"));
+  }
+
+  // `ALL` is no longer offered, so a value left in storage from before would
+  // strand the reader on a page showing every language with no way back.
+  const stored = root.getAttribute("data-lang") ?? "es";
+  apply(stored === "ALL" ? "es" : stored);
+</script>

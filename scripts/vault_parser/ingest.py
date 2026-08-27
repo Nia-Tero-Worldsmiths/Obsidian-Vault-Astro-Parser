@@ -1,4 +1,4 @@
-"""Module 1 -- Ingest.
+"""Ingest.
 
 Pass 1 of the two-pass design: walk the vault, parse every note, assign slugs,
 and build the global index. Nothing here transforms note bodies -- `raw_body`
@@ -208,7 +208,7 @@ def _is_folder_note(found: VaultFile) -> bool:
     """`Luma/Luma.md` is the note *for* the folder, per the folder-notes plugin.
 
     Detection lives here because it affects slugs; the presentation rule
-    (folder notes do not appear as children of their own folder) is Module 7's.
+    (folder notes do not appear as children of their own folder) is `nav_tree`'s.
     """
     parents = found.parent_parts
     return bool(parents) and parents[-1] == found.stem
@@ -232,15 +232,22 @@ def _string_list(value) -> list[str]:
         stripped = value.strip()
         return [stripped] if stripped else []
     if isinstance(value, list):
-        return [str(item).strip() for item in value if str(item).strip()]
+        # `item is not None` first: a positional hole would otherwise be
+        # stringified to the literal "None", which is truthy and would land in
+        # `aliases` as a real alias.
+        return [
+            str(item).strip()
+            for item in value
+            if item is not None and str(item).strip()
+        ]
     return [str(value).strip()]
 
 
 def _collect_tags(data: dict, body: str) -> list[str]:
     """Merge frontmatter tags with inline body tags, de-duplicated, sorted.
 
-    Module 5 will strip inline tags from the prose; collecting them now means
-    they are queryable (Module 6 selects on `#inquisidor`) even before that.
+    `cleanup` will strip inline tags from the prose; collecting them now means
+    they are queryable (`dataview_queries` selects on `#inquisidor`) even before that.
     """
     tags: list[str] = []
     seen: set[str] = set()

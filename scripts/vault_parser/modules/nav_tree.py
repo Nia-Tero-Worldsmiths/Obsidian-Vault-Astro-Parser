@@ -1,4 +1,4 @@
-"""Module 7 -- Navigation tree.
+"""Navigation tree.
 
 Rebuilds the vault's folder hierarchy from each note's `breadcrumb` and emits
 it as `src/generated/nav-tree.json`, which the sidebar renders on every page.

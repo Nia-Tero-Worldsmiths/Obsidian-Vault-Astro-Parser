@@ -1,16 +1,16 @@
-"""Module 2 -- Links & embeds.
+"""Links & embeds.
 
 Rewrites every `[[wikilink]]` and `![[embed]]` in a note's body to inline HTML,
-and resolves the links hiding in frontmatter values so Modules 3 and 6 can use
+and resolves the links hiding in frontmatter values so `inline_dataview` and `dataview_queries` can use
 them without resolving again.
 
 Two decisions worth knowing about:
 
 **Frontmatter is annotated, not rewritten.** `ubicacion: "[[Region de Tambler]]"`
-stays exactly as authored in the emitted file, because Module 6's queries
+stays exactly as authored in the emitted file, because `dataview_queries`'s queries
 compare against the link *target* (`where ubicacion = this.file.link`).
 Rewriting it to HTML would break that comparison. The resolution is attached to
-each `WikiRef` instead, and Module 3 renders it at substitution time.
+each `WikiRef` instead, and `inline_dataview` renders it at substitution time.
 
 **Links to unpublished notes become plain text, not dead links.** On this vault
 that is the common case, not the exception -- most notes are still drafts. The
