@@ -1,4 +1,4 @@
-"""Module 5 -- Inline tags.
+"""Inline tags.
 
 Turns `#Territorio` in prose into Obsidian's own tag markup, `<a class="tag">`,
 which `src/styles/base.css` and the ITS theme between them style as a pill.
@@ -19,7 +19,7 @@ almost every note carrying them is still a draft -- but the count grows with
 every note published, and a literal `#Borrar` on a live page is the kind of
 thing that gets noticed late.
 
-Module 1 already merges inline tags into `note.tags`, so the query module can
+`ingest` already merges inline tags into `note.tags`, so the query module can
 select on them regardless of what this does to the prose.
 """
 

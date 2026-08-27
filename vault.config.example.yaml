@@ -72,12 +72,60 @@ asset_extensions:
 asset_exclude_dirs:
   - z_Assets/Icons
 
+# Languages the site publishes in.
+#
+# These mirror the i18n Manager plugin's own settings. The plugin keeps its
+# copy in `.obsidian/plugins/i18n-manager/data.json`, which is git-ignored and
+# absent from the vault, so the two cannot be read from one place today -- if
+# you change the plugin's language list, change this to match.
+#
+# `default` is the language an unwrapped note is assumed to be written in, and
+# the one a reader falls back to when a note has no content in their language.
+# It must be one of `languages`.
+i18n:
+  enabled: true
+  default: es
+  languages:
+    - { code: es, label: Español }
+    - { code: ja, label: 日本語 }
+    - { code: en, label: English }
+  # Languages the vault supports but the site does not serve yet. Content
+  # tagged with one of these is still parsed -- so a typo is still reported as
+  # a typo -- and then left out of the emitted page.
+  #
+  # This is kept separate from `languages:` on purpose. That list mirrors what
+  # the vault and the plugin can author in; this one is the site's publishing
+  # decision. Collapsing them would make a deliberate English draft
+  # indistinguishable from a misspelled language code.
+  #
+  # It also decides what `:::lang all` expands to, which is what stops a note
+  # sprouting an English section containing nothing but its shared content.
+  ignore: [en]
+  # Shared infobox translation table, read out of the vault. Read-only, and
+  # deliberately inside `z_Templates` (which the note walk ignores) because it
+  # is configuration rather than a note.
+  infobox_table: z_Templates/i18n-infobox.yaml
+
+# Stand-in images, by NoteType, for a note that has no usable picture of its
+# own -- either it names none, or the one it names is not publishable under
+# `z_Assets/CREDITS.yaml`. The file must itself be publishable, or the parser
+# falls back to the generic "withheld" icon rather than quietly publishing
+# something the policy blocks.
+#
+# The key is matched the way an infobox layout key is: case and accents folded.
+fallback_images:
+  persona: retrato-generico.svg
+
 # Transform modules, in pipeline order. Module 1 (ingest) is the core and is
 # not listed here; it always runs. Order matters where noted.
 modules:
   # Must stay first: Obsidian strips comments before parsing block structure,
   # so a `%%comment%%` inside a callout would otherwise split the block.
   comments: { enabled: true }
+  # Splits `:::lang` blocks into one body per language. Must run before every
+  # module that reasons about document structure -- `empty_headings` in
+  # particular judges a document one language at a time only because of this.
+  lang_blocks: { enabled: true }
   links: { enabled: true }
   inline_dataview: { enabled: true }
   callouts: { enabled: true }
@@ -87,6 +135,15 @@ modules:
     enabled: true
     hidden_tags: [WIP, Borrar, Cambiar, TODO]
   dataview_queries: { enabled: true }
+  # Renders the ```i18n-infobox fence the i18n Manager plugin owns, from the
+  # note's NoteType plus the shared table. The hand-written >[!infobox] callout
+  # still renders too (callouts + inline_dataview), so the vault can convert a
+  # few notes at a time.
+  i18n_infobox:
+    enabled: true
+    # true also lists the notes still on the old infobox; the count is always
+    # reported either way.
+    warn_legacy: false
   nav_tree: { enabled: true }
   zoommap: { enabled: true }
   # Removes headings with nothing under them (the unfilled skeleton left by the

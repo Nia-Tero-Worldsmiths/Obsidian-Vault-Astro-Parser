@@ -1,4 +1,4 @@
-"""Module 8b -- Empty headings.
+"""Empty headings.
 
 Removes headings that promise content the note does not have. The vault's
 templates lay out a full section skeleton (`### Historia`, `### Social`, ...)
@@ -20,9 +20,10 @@ recursive rule handles both without a special case.
 
 **Why this runs near the end of the pipeline.** "Empty" is only knowable once
 every module that *adds* content has run. A heading followed by nothing but a
-```dataview fence looks empty until Module 6 executes the query; one followed
-only by a `%%comment%%` or a `#WIP` tag becomes empty only after Modules 1b
-and 5 remove those. Hence order 85, after queries (60) and zoommap (80).
+```dataview fence looks empty until `dataview_queries` executes the query; one
+followed only by a `%%comment%%` or a `#WIP` tag becomes empty only after
+`comments` and `cleanup` remove those. Hence order 85, after queries (60) and
+zoommap (80).
 
 Off by default: whether an empty heading is noise or a deliberate placeholder
 is an editorial call.

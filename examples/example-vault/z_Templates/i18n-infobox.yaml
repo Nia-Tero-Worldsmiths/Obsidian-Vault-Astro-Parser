@@ -1,0 +1,90 @@
+# Infobox translation table for the example vault.
+#
+# A miniature of the real thing, kept here so the `i18n_infobox` module has a
+# table to render against when the pipeline is run without a private vault.
+# Every feature the resolver supports appears exactly once, because each one is
+# a case some test or module has to be able to prove.
+#
+# The real table lives in the vault this project was written for; see
+# `scripts/README.md` for the full schema.
+
+# Shown where a mandatory row has no value. Defaults to "-" if omitted.
+placeholder: "-"
+
+labels:
+  # Section headers.
+  informacion: { es: "Información", ja: "情報", en: "Information" }
+
+  # A plain label, translated three ways.
+  ubicacion: { es: "Ubicado en", ja: "所在地", en: "Located in" }
+
+  # No `en` entry: falls back to the default language rather than to the key.
+  gobierno: { es: "Gobierno", ja: "政体" }
+
+  # `suffix` decorates the VALUE, not the label, and may be a per-language map
+  # for real words.
+  edad: { es: "Edad", ja: "年齢", en: "Age", suffix: { es: "años", ja: "歳", en: "years" } }
+
+  # `prefix` may instead be one plain string, used in every language -- right
+  # for a symbol rather than a word.
+  TL:
+    es: "[[Nivel Tecnológico]]"
+    en: "[[Nivel Tecnológico|Tech level]]"
+    prefix: "TL"
+
+  especie: { es: "Especie", ja: "種族", en: "Species" }
+  clase: { es: "Clase", ja: "クラス", en: "Class" }
+  subclase: { es: "└> Subclase", ja: "└> サブクラス", en: "└> Subclass" }
+  titulos: { es: "Títulos", ja: "称号", en: "Titles" }
+
+# A superscript marker beside the title rather than a row of its own. Obsidian
+# has no enum property type, so the closed set lives here and the only
+# enforcement is visual.
+status:
+  Vivo: { symbol: "", es: "Vivo", ja: "生存", en: "Alive" }
+  Muerto: { symbol: "†", es: "Muerto", ja: "死亡", en: "Dead" }
+
+  # Catches anything not in the list above -- a typo, or an unfilled template
+  # marker. It carries its own symbol because it means something different from
+  # a deliberate "unknown": that is a fact about the character, this is a
+  # mistake in the note.
+  _sin_reconocer:
+    symbol: "⚠"
+    es: "Valor de «estado» no reconocido"
+    en: "Unrecognized «estado» value"
+    fallback: true
+
+# Controlled vocabulary: translated once, and it holds for every note. A note
+# that writes `especie_ja` of its own always wins over this.
+values:
+  especie:
+    Humano: { ja: "人間", en: "Human" }
+    Aksolotl: { ja: "アホロートル", en: "Axolotl" }
+
+layouts:
+  lugar:
+    heading: informacion
+    rows: [ubicacion, gobierno, TL]
+
+  persona:
+    image: imagen
+    # Used when the note names no image, or when the one it names cannot be
+    # published. Read by the parser's `image_licensing` module too, so the
+    # site and Obsidian agree on what a portrait-less note looks like.
+    imageFallback: retrato-generico.svg
+    status: estado
+    sections:
+      - heading: informacion
+        rows:
+          # A trailing "?" marks a row OPTIONAL: it disappears when the note
+          # has no value, instead of printing a placeholder. Without it a row
+          # is mandatory, so an infobox keeps a fixed shape per NoteType and
+          # doubles as a list of what the note still needs.
+          - especie
+          - edad
+          - titulos?
+          # `group` pairs keys BY POSITION, so a multiclass character is
+          # written as two lists rather than with slashes:
+          #     clase:    [Rogue, Maga]
+          #     subclase: [Arcane Trickster, Bladesinger]
+          - group: [clase, subclase?]

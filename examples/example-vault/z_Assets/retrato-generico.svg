@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="96" height="96" role="img" aria-label="Retrato genérico">
+  <rect width="96" height="96" rx="8" fill="#e8e2d6"/>
+  <circle cx="48" cy="36" r="16" fill="#b9ac97"/>
+  <path d="M16 88c0-17.7 14.3-32 32-32s32 14.3 32 32z" fill="#b9ac97"/>
+</svg>

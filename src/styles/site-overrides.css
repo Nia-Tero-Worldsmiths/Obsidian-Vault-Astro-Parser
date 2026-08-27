@@ -154,3 +154,232 @@ a.tag {
   /* The icon is decorative; the wrapper carries the label. */
   pointer-events: none;
 }
+
+/* ---------------------------------------------------------------------------
+ * Language switching
+ *
+ * The parser emits every language a note carries into the same page, each in
+ * a `.lang-section`. Switching is only an attribute on <html>; these rules do
+ * the hiding. That is the same mechanism the i18n Manager plugin uses inside
+ * Obsidian, where `.ml-language-hidden { display: none }` is the whole trick.
+ *
+ * `data-lang="ALL"` deliberately matches nothing here, so every section stays
+ * visible -- the plugin's ALL pill behaves the same way.
+ *
+ * Monolingual notes carry no `.lang-section` at all and are unaffected.
+ * ------------------------------------------------------------------------ */
+html[data-lang="es"] .lang-section:not([data-lang="es"]),
+html[data-lang="ja"] .lang-section:not([data-lang="ja"]),
+html[data-lang="en"] .lang-section:not([data-lang="en"]) {
+  display: none;
+}
+
+/* The page heading follows the language the same way the body does. Exactly
+ * one variant shows; under ALL the first wins, so the heading does not repeat
+ * three times above a page that already shows all three bodies. */
+.lang-title {
+  display: none;
+}
+
+html[data-lang="es"] .lang-title[data-lang="es"],
+html[data-lang="ja"] .lang-title[data-lang="ja"],
+html[data-lang="en"] .lang-title[data-lang="en"],
+html[data-lang="ALL"] .lang-title:first-child {
+  display: inline;
+}
+
+/* The language switcher.
+ *
+ * Modelled on the plugin's own bar: a rounded, inset container holding pills,
+ * where the active one lifts out on a lighter background. Reproduced here
+ * rather than extracted, because `extract_theme.py` reads the vault's ITS
+ * theme and snippets, and the plugin's stylesheet is neither.
+ *
+ * It lives in its own grid column to the right of the prose, and sticks there
+ * while the note scrolls, so it is always reachable and never covers the text
+ * it applies to. Below 60rem the grid collapses and BaseLayout returns it to
+ * the flow above the article -- roughly where Obsidian puts it, which is the
+ * only place Obsidian allows.
+ */
+.lang-rail {
+  position: sticky;
+  top: 2rem;
+  align-self: start;
+}
+
+.lang-bar {
+  display: flex;
+  width: fit-content;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  background: var(--background-secondary-alt, var(--background-secondary, #efe7d9));
+  border: 1px solid var(--background-modifier-border, #d8ccbc);
+  border-radius: 7px;
+  box-shadow: 0 2px 6px -2px var(--background-modifier-box-shadow, rgba(0, 0, 0, 0.25));
+}
+
+/* Stacked in the rail, where vertical space is what there is plenty of. */
+.lang-rail .lang-bar {
+  flex-direction: column;
+  align-items: stretch;
+
+  /* Reach back across the article's own padding.
+   *
+   * The reading column carries 2rem of side padding (the theme's
+   * `--file-margins`), and that padding lives *inside* the grid column. So
+   * shrinking the column gap only ever closes the distance to the column
+   * edge, and stops about 3rem short of the text a reader actually sees --
+   * which is why tightening the gap alone looked like nothing had changed.
+   *
+   * Relative positioning reaches across it without touching layout: nothing
+   * reflows, the content column stays exactly where the appearance checks
+   * measured it, and only the bar moves. The offset stays smaller than the
+   * padding it crosses, so the bar can never reach the text. */
+  position: relative;
+  left: -2.25rem;
+}
+
+.lang-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 16px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted, #6b6862);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  transition:
+    color 0.12s ease,
+    background 0.12s ease,
+    box-shadow 0.12s ease;
+}
+
+.lang-pill:hover:not(.lang-pill--active) {
+  color: var(--text-normal, #1a1a1a);
+  background: var(--background-modifier-hover, rgba(0, 0, 0, 0.05));
+}
+
+.lang-pill--active {
+  color: var(--text-normal, #1a1a1a);
+  background: var(--background-primary, #fff);
+  font-weight: 600;
+  box-shadow:
+    0 1px 4px rgba(0, 0, 0, 0.14),
+    0 0 0 0.5px rgba(0, 0, 0, 0.07);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lang-pill {
+    transition: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Plugin-rendered infobox
+ *
+ * The `ml-*` classes come from the plugin's own styles.css, which
+ * extract_theme.py does not read -- it takes the vault's ITS Theme, Cards.css
+ * and custom.css, and the plugin is none of those. So these are hand-authored
+ * here, kept close to the plugin's values.
+ *
+ * `data-callout="infobox"` on the wrapper means the theme's existing infobox
+ * rules still apply; these only cover what the theme has never seen.
+ * ------------------------------------------------------------------------ */
+.ml-infobox-title {
+  margin: 0 0 0.4em;
+  font-size: 1.3em;
+  font-weight: 700;
+}
+
+.ml-infobox-image img {
+  max-width: 100%;
+  height: auto;
+}
+
+.ml-infobox-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.5em 0 0;
+}
+
+.ml-infobox-table th {
+  text-align: center;
+  font-weight: 600;
+  padding: 0.25em 0.4em;
+  border-bottom: 1px solid var(--background-modifier-border, #d8ccbc);
+}
+
+.ml-infobox-table td {
+  padding: 0.2em 0.4em;
+  vertical-align: top;
+}
+
+.ml-infobox-label {
+  font-weight: 600;
+  white-space: nowrap;
+  padding-right: 0.8em;
+}
+
+/* A row the note never filled in. Dimmed rather than hidden: the infobox is a
+ * fixed shape per NoteType, and the gap is the point. */
+.ml-infobox-row--missing .ml-infobox-value {
+  color: var(--text-faint, #9a958c);
+}
+
+/* Structurally wrong rather than merely empty -- a subclass with no class.
+ * Styled like the status fallback so both kinds of "there is a mistake here"
+ * look the same. */
+.ml-infobox-row--problem .ml-infobox-value,
+.ml-infobox-status--fallback {
+  color: var(--text-error, #c75049);
+}
+
+.ml-infobox-status {
+  margin-left: 0.15em;
+  font-size: 0.7em;
+  vertical-align: super;
+}
+
+.ml-infobox-warning {
+  padding: 0.5em 0.7em;
+  border: 1px solid var(--text-error, #c75049);
+  border-radius: var(--radius-s, 6px);
+  background: var(--background-secondary, #f6f2ea);
+  color: var(--text-muted, #6b6862);
+  font-size: 0.9em;
+}
+
+.ml-infobox-warning-prefix {
+  font-weight: 700;
+  color: var(--text-error, #c75049);
+}
+
+/* A stand-in portrait, where the real one is missing or may not be published.
+ * Slightly muted so it does not read as a likeness of the character. */
+.image-fallback {
+  opacity: 0.75;
+}
+
+/* "Not translated yet" notice. Shown when the reader picked a language this
+ * note does not carry; the default language's text is shown underneath rather
+ * than a blank page, which is where this site parts company with the plugin. */
+.lang-fallback {
+  margin: 0 0 1rem;
+  padding: 0.4rem 0.7rem;
+  border-left: 3px solid var(--text-accent, #d63636);
+  background: var(--background-secondary, #f6f2ea);
+  color: var(--text-muted, #6b6862);
+  font-size: 0.85rem;
+}
+
+.lang-fallback[hidden] {
+  display: none;
+}

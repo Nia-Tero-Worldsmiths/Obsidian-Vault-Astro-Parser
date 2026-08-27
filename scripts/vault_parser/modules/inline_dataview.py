@@ -1,4 +1,4 @@
-"""Module 3 -- Inline dataview.
+"""Inline dataview.
 
 Substitutes Obsidian's inline dataview expressions with the note's own
 frontmatter values. Until this runs, every infobox on the site reads
@@ -26,6 +26,7 @@ import re
 
 from .. import linking, mdtext
 from ..linking import parse_refs
+from ..infobox import normalize_type_key
 from ..model import Note, VaultContext
 from .base import TransformModule
 
@@ -92,10 +93,21 @@ class InlineDataviewModule(TransformModule):
         """
         value = self._lookup(field, note)
         if not isinstance(value, str) or not value.strip():
-            self.count("embed empty")
-            return ""
-
-        target = value.strip()
+            # A NoteType may name a stand-in for notes with no picture of
+            # their own -- a neutral avatar reads better than an empty gap in
+            # the middle of an infobox. `image_licensing` covers the other
+            # half of the same idea, where a picture exists but may not be
+            # published.
+            fallback = ctx.config.fallback_images.get(
+                normalize_type_key(note.frontmatter.get("NoteType"))
+            )
+            if not fallback:
+                self.count("embed empty")
+                return ""
+            self.count("embed filled from fallback_images")
+            target = fallback
+        else:
+            target = value.strip()
         # The value is either a bare filename (`Moby (Rondfort).jpg`) or a
         # wikilink (`[[Moby (Rondfort).jpg]]`). Reduce both to the filename.
         refs = parse_refs(target)

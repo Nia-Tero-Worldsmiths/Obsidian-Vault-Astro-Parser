@@ -1,4 +1,4 @@
-"""Module 4 -- Callouts.
+"""Callouts.
 
 Converts Obsidian callout blockquotes into the DOM the ITS theme expects, so
 the vendored stylesheet styles them without a parallel implementation. The

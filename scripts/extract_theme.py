@@ -56,13 +56,13 @@ ALLOWED_CLASSES = {
     # Obsidian container contract reproduced by BaseLayout
     "theme-light", "wotc-beyond", "sizing-readable",
     "markdown-preview-view", "markdown-rendered", "markdown-body",
-    # callouts (Module 4)
+    # callouts (`callouts`)
     "callout", "callout-title", "callout-title-inner", "callout-icon",
     "callout-content", "callout-fold", "is-collapsed",
-    # links (Module 2) and inline tags (Module 5)
+    # links (`links`) and inline tags (`cleanup`)
     "internal-link", "external-link", "is-unpublished", "is-unresolved",
     "is-active", "tag",
-    # dataview output (Module 6)
+    # dataview output (`dataview_queries`)
     "dataview", "table-view-table", "table-view-thead", "table-view-tbody",
     "table-view-th", "table-view-tr-header", "list-view-ul",
     "dataview-result-list-li",
@@ -73,7 +73,7 @@ ALLOWED_CLASSES = {
     "cards-cols-1", "cards-cols-2", "cards-cols-3", "cards-cols-4",
     "cards-cols-5", "cards-cols-6", "cards-cols-7", "cards-cols-8",
     "cards-cover", "cards-align-bottom", "table-100", "trim-cols", "prosa",
-    # navigation tree (Module 7 + NavTree.astro)
+    # navigation tree (`nav_tree` + NavTree.astro)
     "nav-tree", "nav-list", "nav-folder", "nav-folder-title", "nav-folder-name",
     "nav-folder-note", "nav-file", "nav-file-title",
     # page shell
@@ -102,7 +102,7 @@ ALLOWED_CALLOUT_TYPES = {"infobox"}
 
 # Embedded fonts to keep. The theme inlines two: `its` (41 KB) is its icon
 # font, which callout icons, `--hr-icon-font` and `--link-font` all depend on;
-# `Fira Code` (314 KB) is a monospace coding face, and after Module 3 has
+# `Fira Code` (314 KB) is a monospace coding face, and after `inline_dataview` has
 # substituted the inline dataview expressions there is almost no code left on
 # the site to set in it. Dropping it removes 60% of the output.
 KEEP_FONT_FAMILIES = {"its"}

@@ -36,6 +36,10 @@ const authored = {
   imagen: z.string().optional(),
   // Obsidian accepts both the list and single-string forms.
   cssclasses: z.union([z.string(), z.array(z.string())]).optional(),
+  // Language codes the note carries content for, in configured order.
+  // Optional because the parser omits it when `i18n` is switched off;
+  // absent means the note is monolingual in the default language.
+  languages: z.array(z.string()).optional(),
 };
 
 // `.passthrough()` keeps every other vault property available on `entry.data`

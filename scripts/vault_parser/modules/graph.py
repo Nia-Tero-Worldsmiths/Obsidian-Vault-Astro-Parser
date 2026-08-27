@@ -1,4 +1,4 @@
-"""Module 9 -- Link graph.
+"""Link graph.
 
 Emits `src/generated/graph.json`: the note-to-note link graph, per-note
 backlinks, and the appearance settings copied from the vault's own
@@ -10,8 +10,8 @@ From that config it honours the five path-based colour groups, `showOrphans`
 parameters (`centerStrength`, `repelStrength`, `linkStrength`, `linkDistance`).
 
 Edges are recomputed from `raw_body` and frontmatter rather than read out of
-the transformed text. By the time this runs, Module 2 has rewritten every
-wikilink into an `<a href>`, and Module 8 has replaced map fences wholesale --
+the transformed text. By the time this runs, `links` has rewritten every
+wikilink into an `<a href>`, and `zoommap` has replaced map fences wholesale --
 parsing that back out would be both fragile and lossy. Working from the
 untransformed source makes the module independent of what ran before it, so
 `--only graph` produces the same graph as a full run.

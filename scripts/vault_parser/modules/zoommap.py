@@ -1,4 +1,4 @@
-"""Module 8 -- Zoommap.
+"""Zoommap.
 
 Renders ```zoommap fences as pan-and-zoom maps with clickable pins.
 
@@ -166,7 +166,7 @@ class ZoommapModule(TransformModule):
         caption = f'<span class="zoommap-label">{escaped}</span>' if label else ""
 
         # A pin whose target is published becomes a link; one pointing at an
-        # unpublished or missing note stays a marker, matching how Module 2
+        # unpublished or missing note stays a marker, matching how `links`
         # treats the same situation in prose.
         if resolution is not None and resolution.kind is linking.LinkKind.PUBLISHED:
             return (

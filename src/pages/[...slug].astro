@@ -24,6 +24,21 @@ export async function getStaticPaths() {
 
 const { entry } = Astro.props;
 const { Content } = await render(entry);
+
+// The page heading follows the active language, from the same
+// `title_<lang>` keys the infobox reads. Every variant is emitted and CSS
+// shows one, so switching needs no reload -- the same approach the body
+// takes. A language with no `title_<lang>` falls back to `title`, which is
+// what the plugin does too.
+const data = entry.data as Record<string, unknown>;
+const languages = (entry.data.languages ?? []) as string[];
+const titles =
+  languages.length > 1
+    ? languages.map((code) => [
+        code,
+        (data[`title_${code}`] as string | undefined) ?? entry.data.title,
+      ] as const)
+    : [];
 ---
 
 <BaseLayout
@@ -31,9 +46,22 @@ const { Content } = await render(entry);
   breadcrumb={entry.data.breadcrumb}
   currentSlug={entry.data.slug}
   cssclasses={entry.data.cssclasses}
+  languages={languages}
 >
   <article>
-    <h1>{entry.data.title}</h1>
+    {
+      titles.length > 0 ? (
+        <h1>
+          {titles.map(([code, text]) => (
+            <span class="lang-title" data-lang={code}>
+              {text}
+            </span>
+          ))}
+        </h1>
+      ) : (
+        <h1>{entry.data.title}</h1>
+      )
+    }
     <Content />
   </article>
 </BaseLayout>

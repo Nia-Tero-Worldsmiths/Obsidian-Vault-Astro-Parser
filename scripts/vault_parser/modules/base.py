@@ -62,7 +62,7 @@ class TransformModule:
     def section(self, title: str, lines: list[str]) -> None:
         """Contribute a named block to the run report.
 
-        Modules surface their own findings this way -- Module 2 uses it to list
+        Modules surface their own findings this way -- `links` uses it to list
         which unpublished notes are most linked to, which is a publishing
         to-do list rather than an error.
         """

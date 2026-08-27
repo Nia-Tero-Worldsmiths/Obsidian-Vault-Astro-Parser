@@ -1,6 +1,6 @@
 # Example vault
 
-A four-note vault that exists so the parser can be run without a real one.
+A five-note vault that exists so the parser can be run without a real one.
 Every feature in it is there because some module needs a case to prove itself
 against, not because the world needs describing.
 
@@ -33,7 +33,10 @@ here, so `vault_root` is the only line that needs changing.
 | `World Encyclopedia/Gremio de Ejemplo.md` | a table with column alignment, tags, an embed that provenance blocks |
 | `Prosa/1 - Fragmento.md` | the `prosa` cssclass, a horizontal rule, a note with no outgoing links |
 | `_Borrador privado.md` | never emitted: `ignore_globs` drops it before the publish gate is consulted |
+| `World Encyclopedia/Persona de Ejemplo.md` | `:::lang` blocks in three languages, an `i18n-infobox` fence, paired rows, an optional row, `%%` comments staying inert, a fenced sample that must not be parsed as a block |
+| `z_Templates/i18n-infobox.yaml` | the infobox translation table: labels, per-language suffix and plain prefix, controlled vocabulary, status marker, optional rows, paired rows |
 | `z_Assets/CREDITS.yaml` | one image published, one blocked |
+| `z_Assets/retrato-generico.svg` | the `fallback_images:` stand-in portrait |
 
 ## What is not here
 

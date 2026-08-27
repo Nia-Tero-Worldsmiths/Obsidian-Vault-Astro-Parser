@@ -7,7 +7,7 @@ is left alone.
 
 This vault currently has zero wikilinks inside code, so nothing depends on it
 today -- but the vault has fenced `dataview` and `zoommap` blocks whose
-contents are configuration, not prose, and Module 6 will add more. Getting the
+contents are configuration, not prose, and `dataview_queries` will add more. Getting the
 boundary right once, here, keeps every later module honest.
 """
 
@@ -39,7 +39,7 @@ def iter_regions(text: str) -> Iterator[tuple[str, str]]:
 
     `kind` is one of `TEXT`, `FENCE`, `INLINE_CODE`. Inline code is kept
     distinct from fenced code because they are opposites for our purposes:
-    Module 2 must never touch either, while Module 3 exists precisely to
+    `links` must never touch either, while `inline_dataview` exists precisely to
     rewrite inline code (Obsidian spells inline dataview `` `=this.field` ``)
     and must still leave fences alone.
     """

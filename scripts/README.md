@@ -135,15 +135,19 @@ build against CI's, which prints its fingerprint to the job summary.
 | `src/generated/*.json` | sidecar artifacts from `finalize()` modules |
 | `public/vault-assets/` | referenced images |
 
-All three are generated but **committed** -- they are what the site builds
-from, and the vault itself is never committed to this repo.
+All three are generated and **git-ignored** -- they depend on a particular
+vault, and this repository holds the tool rather than any vault's output. A
+fresh clone therefore has nothing to build until `vault_root` points somewhere;
+CI regenerates all three on every run.
 
 ## Adding a module
 
 Each iteration of this project is one module. The core does not change.
 
-1. Write `modules/mNN_<name>.py` subclassing `TransformModule`. Set `name`,
-   `order`, `summary`, and `stub = False`. Override `transform(note, ctx)` for
+1. Write `modules/<name>.py` subclassing `TransformModule`. Set `name`,
+   `order`, `summary`, and `stub = False`. The file is named for what the
+   module does; `order` alone sequences it, so there is no number to keep in
+   step and no renaming when one is inserted between two others. Override `transform(note, ctx)` for
    per-note edits, or `finalize(ctx)` to emit a sitewide artifact into
    `ctx.generated`.
 2. Add the class to `_MODULE_CLASSES` in `modules/registry.py`.
@@ -154,9 +158,10 @@ Obsidian's resolution order (path, then title, then slug, then alias) and
 `ctx.find_asset()` does case-insensitive image lookup. Use them rather than
 re-walking the vault.
 
-Current order: `10 comments -> 20 links -> 30 inline_dataview -> 40 callouts
--> 50 cleanup -> 60 dataview_queries -> 70 nav_tree -> 80 zoommap
--> 82 image_licensing -> 85 empty_headings -> 90 graph`.
+Current order: `10 comments -> 15 lang_blocks -> 20 links
+-> 30 inline_dataview -> 40 callouts -> 50 cleanup -> 60 dataview_queries
+-> 65 i18n_infobox -> 70 nav_tree -> 80 zoommap -> 82 image_licensing
+-> 85 empty_headings -> 90 graph`.
 
 **Order is load-bearing.** Obsidian strips `%%comments%%` before it parses
 block structure, so `comments` must stay first: a commented line inside a
@@ -167,7 +172,7 @@ a published page into an orphaned blockquote.
 `empty_headings` is the other order-sensitive one: it removes headings with
 nothing under them, and "nothing" is only knowable after every module that adds
 content has run -- a heading followed by a ```dataview fence is not empty once
-Module 6 executes it, and one followed only by a `%%comment%%` or a `#WIP` tag
+`dataview_queries` executes it, and one followed only by a `%%comment%%` or a `#WIP` tag
 becomes empty only after Modules 1b and 5. Hence 85, not 50.
 
 Its rule is recursive: a heading is empty when it has no own content *and*
@@ -283,12 +288,131 @@ next blank line, so without them the infobox tables would never parse.
 - `linking.render_text_with_links(text, ctx)` -- for a string mixing prose and
   links; escapes the prose and renders the links in one pass.
 
-Module 2 stores each resolution on `WikiRef.resolution`, which Module 6 should
+`links` stores each resolution on `WikiRef.resolution`, which `dataview_queries` should
 read rather than resolving again.
 
-Note that Module 2 deliberately leaves frontmatter wikilinks as authored:
-Module 6's queries compare against link targets (`where ubicacion =
+Note that `links` deliberately leaves frontmatter wikilinks as authored:
+`dataview_queries`'s queries compare against link targets (`where ubicacion =
 this.file.link`), which rewriting would break.
+
+## Languages
+
+The vault is moving to the [i18n Manager](https://github.com/Nia-Tero-Worldsmiths/obsidian-i18n-manager)
+plugin's format: body prose wrapped in `:::lang <codes>` blocks, and infoboxes
+declared as a bare ```` ```i18n-infobox ```` fence that the plugin renders from
+the note's `NoteType` plus a shared table in the vault. Two modules handle it.
+
+`lang_blocks` (15) splits a note into one finished body per language and stores
+them on `note.lang_bodies`; `Pipeline.run_note` then runs every *other* module
+once per body. That is the load-bearing decision in the whole feature. The
+plugin can afford to hide other languages with a CSS class because Obsidian
+re-renders live, but several modules here reason about document structure --
+`empty_headings` decides whether a heading is empty from what follows it, and
+its rule is recursive. Handed a document holding three languages at once it
+would delete a Spanish parent heading whose only substantive child was
+Japanese. Splitting first means those modules never learn i18n exists.
+
+It also means `:::lang` never reaches the emitted markdown, which is what keeps
+the door open to per-language routes (`/ja/<slug>`) later: that would change
+`emit` and `[...slug].astro` and nothing else.
+
+The visibility rule is the plugin's, and worth stating exactly because it is
+easy to misread. The threshold is a *single line number*, `blocks[0].openLine`:
+
+- above the first opening marker -- shared, every language sees it;
+- inside a block -- that block's languages, or all of them for `:::lang all`;
+- at or after the first opening marker but outside every block -- the default
+  language only. **This catches text between two blocks**, not just text after
+  the last one. The dry-run report lists notes where that happens, because it
+  is the easiest mistake to make while converting a note.
+
+`i18n_infobox` (65) renders the fence. Its resolution logic is a port of the
+plugin's `src/infobox/model.ts`, kept in `infobox.py` free of pipeline
+machinery so it stays testable on its own -- that file and `langblocks.py` are
+what `tests/` covers, and those tests are ports of the plugin's own. When the
+plugin's suite gains a case, port it here too; this is a second implementation
+of rules that exist in exactly one other place.
+
+Both infobox formats render at once, so the vault can convert a few notes at a
+time. The hand-written `>[!infobox]` callout is `callouts` + `inline_dataview`;
+the fence is a separate construct and the two never touch. The report always
+prints how many published notes are still on the old one, and
+`warn_legacy: true` lists them.
+
+### Which languages the site serves
+
+Two lists, deliberately not one:
+
+```yaml
+i18n:
+  languages: [es, ja, en]   # what the vault and the plugin can author in
+  default: es
+  ignore: [en]              # supported, but not served yet
+```
+
+`languages` mirrors the plugin's own setting. `ignore` is the *site's*
+publishing decision, and subtracting it gives `served`, which is what actually
+gets emitted.
+
+Collapsing them into one list looks tempting -- deleting `en` from `languages`
+would also stop English being emitted -- but it loses a distinction worth
+keeping. With `en` declared and ignored, a `:::lang en` block is a deliberate
+draft and is reported as content the site chose not to serve. With `en` simply
+absent, that same block is indistinguishable from a typo like `:::lang eng`,
+and both come out as "unknown language code".
+
+It also decides what `:::lang all` expands to, which is the practical reason it
+exists: without it, a note whose only shared content sits in an `all` block
+sprouts a pill for a language that has nothing but that shared content behind
+it.
+
+Two guards, both hard config errors: the default language cannot be ignored
+(every note falls back to it, so the site would come out empty), and a code
+that is not in `languages` cannot be ignored (almost always a typo, and doing
+nothing silently would hide it).
+
+**Do not express this by editing the plugin instead.** Its language list lives
+in `.obsidian/plugins/i18n-manager/data.json`, which the vault git-ignores, so
+the change would reach neither your co-authors nor CI -- and making it stick
+would mean editing `DEFAULT_SETTINGS` in the plugin's source to record a
+publishing decision. It would also take away the ability to *draft* in that
+language, and leave `i18n-infobox.yaml` promising a language the plugin no
+longer offers.
+
+### Two YAML shapes PyYAML will not read
+
+Obsidian's YAML parser accepts both of these and PyYAML rejects the whole
+document over either, so `frontmatter.normalize_flow_sequences` rewrites them
+before parsing -- the same move `_sanitize` already makes for bare wikilinks:
+
+- **`[clase, subclase?]`** -- the layout's optional-row marker. `?` is an
+  indicator character in flow context. The real vault table hits this, and
+  without the fix *every* infobox in the vault fails, not just that row.
+- **`[, Tierra]`** -- a positional hole, which is how the table itself
+  documents pairing a subclass to the second of two classes. PyYAML refuses an
+  empty item, and since `frontmatter.parse` treats an unparseable block as
+  empty, such a note would lose its whole frontmatter, `publish` included, and
+  drop off the site without a word.
+
+Holes are then *preserved* through `_clean_value`, because for paired keys the
+gap is the signal. Consumers that want plain strings filter `None` themselves.
+
+### Fallback portraits
+
+`fallback_images:` maps a NoteType to a stand-in image for notes with no usable
+picture -- either they name none, or the one they name is not publishable under
+`z_Assets/CREDITS.yaml`. Both halves are covered: `image_licensing` swaps it in
+for a withheld portrait, and `inline_dataview` / `i18n_infobox` use it when the
+note names no image at all.
+
+Three rules it keeps. The stand-in is checked against `CREDITS.yaml` like any
+other image, so it can never become a hole in the policy. It is added to
+`ctx.referenced_assets` when used, or nothing would copy it to `public/` and
+the `<img>` would 404. And the original `alt` and the "why" tooltip both
+survive, so a reader is never told a placeholder is a likeness.
+
+It does not override an author's choice: a note whose `=embed(...)` line is
+commented out keeps no portrait, because there is no embed left to fill.
 
 ## Theme extraction
 
@@ -450,3 +574,19 @@ edit that is later reverted still changes it. Check 3 is exact for back-to-back
 runs; across time, a `sourceModified`-only diff means the file was touched, not
 that the parser is non-deterministic. Confirm what changed in the vault before
 treating such a diff as a parser bug.
+
+## Running the tests
+
+```bash
+.venv/Scripts/python -m unittest discover -s tests -t .
+```
+
+Stdlib `unittest`, so nothing is added to `requirements.txt`. The two suites
+are ports of the plugin's own (`tests/infoboxModel.test.ts` and
+`tests/syntaxConsistency.test.ts`), kept close to the originals -- same names,
+same fixtures -- so a case added there can be brought across mechanically.
+
+The negative half of `test_langblocks.py` matters more than the positive half:
+`%%` is ordinary Obsidian comment syntax used ~254 times in this vault, and the
+upstream plugin treated `%% lang es %%` as a marker. If those cases ever start
+parsing as blocks, notes lose content silently.

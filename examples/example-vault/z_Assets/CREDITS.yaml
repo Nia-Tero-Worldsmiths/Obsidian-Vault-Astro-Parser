@@ -24,6 +24,10 @@ defaults:
 assets:
   "escudo-ejemplo.svg": { origin: original, author: Example Author }
 
+  # The persona placeholder. In-house, so it publishes -- which is what lets
+  # `image_licensing` substitute it for a portrait it has to withhold.
+  "retrato-generico.svg": { origin: original, author: Example Author }
+
   # Blocked. Referenced by `Gremio de Ejemplo.md`, but never copied to
   # `public/vault-assets/` -- the embed is replaced with a placeholder that
   # keeps the original alt text, so the gap is visible rather than silent.
