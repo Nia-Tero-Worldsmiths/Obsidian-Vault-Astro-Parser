@@ -24,7 +24,6 @@ import re
 
 from .. import infobox as ib
 from .. import linking
-from ..infobox import normalize_type_key
 from ..model import Note, VaultContext
 from .base import TransformModule
 
@@ -55,6 +54,8 @@ class I18nInfoboxModule(TransformModule):
         self._unknown_types: dict[str, str] = {}
         #: Published notes still carrying a `>[!infobox]` callout.
         self._legacy: set[str] = set()
+        #: NoteType -> notes that declared a fence the type does not want.
+        self._suppressed: dict[str, list[str]] = {}
         #: vault_path -> messages, for rows that are structurally wrong.
         self._problems: dict[str, list[str]] = {}
 
@@ -99,6 +100,15 @@ class I18nInfoboxModule(TransformModule):
             note.warn(f"no infobox layout for NoteType `{shown}`")
             return _warning(f"no layout for NoteType «{shown}»")
 
+        if ib.suppressed(layout):
+            # A decision, not a mistake: drop the block and say so in the run
+            # report rather than on the page. A reader of a chapter should
+            # never be shown scaffolding, and the author reading the report is
+            # the one who can remove the stray fence.
+            self._suppressed.setdefault(str(note_type).strip(), []).append(note.vault_path)
+            self.count("infoboxes suppressed by layout")
+            return ""
+
         default = ctx.config.i18n.default
         title = ib.resolve_title(layout, note.frontmatter, lang, default, note.source.stem)
         sections = ib.resolve_infobox(table, layout, note.frontmatter, lang, default)
@@ -108,7 +118,7 @@ class I18nInfoboxModule(TransformModule):
             # The layout named no stand-in; the parser-side mapping is the
             # one that works without editing the vault's table.
             ref = ctx.config.fallback_images.get(
-                normalize_type_key(note_type)
+                ib.normalize_type_key(note_type)
             ) or None
             if ref:
                 self.count("portraits filled from fallback_images")
@@ -236,9 +246,32 @@ class I18nInfoboxModule(TransformModule):
     # -- report ----------------------------------------------------------
 
     def finalize(self, ctx: VaultContext) -> None:
+        self._report_suppressed()
         self._report_unknown_types()
         self._report_problems()
         self._report_legacy()
+
+    def _report_suppressed(self) -> None:
+        """Fences dropped because their NoteType declares `infobox: false`.
+
+        Worth saying -- the block was authored and did nothing -- but not worth
+        a warning box on a published page.
+        """
+        if not self._suppressed:
+            return
+        lines = [
+            "These notes declare an infobox, but the translation table marks",
+            "their `NoteType` as one that does not carry one (`infobox: false`).",
+            "The block was dropped. Remove the fence, or give the type a layout.",
+            "",
+        ]
+        for note_type, paths in sorted(self._suppressed.items()):
+            lines.append(f"  NoteType: {note_type}  ({len(paths)} note(s))")
+            for path in sorted(paths)[:5]:
+                lines.append(f"      {path}")
+            if len(paths) > 5:
+                lines.append(f"      ... and {len(paths) - 5} more")
+        self.section("Infobox not used by this NoteType", lines)
 
     def _report_unknown_types(self) -> None:
         if not self._unknown_types:

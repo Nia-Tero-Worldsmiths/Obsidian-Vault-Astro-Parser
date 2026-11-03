@@ -45,8 +45,8 @@ import html
 import re
 
 from .. import credits as credits_mod
+from .. import infobox as ib
 from .. import linking
-from ..infobox import normalize_type_key
 from ..model import Note, VaultContext
 from .base import TransformModule
 
@@ -105,7 +105,7 @@ class ImageLicensingModule(TransformModule):
 
         if not self._fallbacks:
             self._fallbacks = {
-                normalize_type_key(key): value
+                ib.normalize_type_key(key): value
                 for key, value in ctx.config.fallback_images.items()
             }
 
@@ -190,19 +190,24 @@ class ImageLicensingModule(TransformModule):
         if self._owners is None:
             self._owners = {}
             for candidate in ctx.notes:
-                note_type = normalize_type_key(candidate.frontmatter.get("NoteType"))
+                note_type = ib.normalize_type_key(candidate.frontmatter.get("NoteType"))
                 if not note_type:
                     continue
                 for key in ("imagen", "image"):
-                    ref = candidate.frontmatter.get(key)
-                    if isinstance(ref, str) and ref.strip():
+                    raw = candidate.frontmatter.get(key)
+                    # Every image a note claims, not just the first: any of
+                    # them may be the one being withheld.
+                    for item in raw if isinstance(raw, list) else [raw]:
+                        ref = ib.normalize_image_ref(item)
+                        if not ref:
+                            continue
                         asset = ctx.find_asset(_bare(ref))
                         if asset is not None:
                             self._owners.setdefault(asset.out_name, note_type)
 
         prefix = ctx.config.asset_base_url.rstrip("/") + "/"
         out_name = src[len(prefix):] if src.startswith(prefix) else ""
-        return self._owners.get(out_name) or normalize_type_key(
+        return self._owners.get(out_name) or ib.normalize_type_key(
             note.frontmatter.get("NoteType")
         )
 

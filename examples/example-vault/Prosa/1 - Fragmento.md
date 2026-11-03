@@ -1,8 +1,12 @@
 ---
+NoteType: prosa
 publish: true
 cssclasses:
   - prosa
 ---
+```i18n-infobox
+```
+
 
 # Fragmento
 

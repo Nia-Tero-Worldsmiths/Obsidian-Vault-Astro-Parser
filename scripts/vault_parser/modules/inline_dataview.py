@@ -24,9 +24,8 @@ from __future__ import annotations
 import html
 import re
 
-from .. import linking, mdtext
+from .. import infobox as ib, linking, mdtext
 from ..linking import parse_refs
-from ..infobox import normalize_type_key
 from ..model import Note, VaultContext
 from .base import TransformModule
 
@@ -91,15 +90,15 @@ class InlineDataviewModule(TransformModule):
         Obsidian renders an empty embed here; emitting nothing is tidier than
         a broken image and keeps the infobox layout intact.
         """
-        value = self._lookup(field, note)
-        if not isinstance(value, str) or not value.strip():
+        value = ib.first_image_ref(self._lookup(field, note))
+        if not value:
             # A NoteType may name a stand-in for notes with no picture of
             # their own -- a neutral avatar reads better than an empty gap in
             # the middle of an infobox. `image_licensing` covers the other
             # half of the same idea, where a picture exists but may not be
             # published.
             fallback = ctx.config.fallback_images.get(
-                normalize_type_key(note.frontmatter.get("NoteType"))
+                ib.normalize_type_key(note.frontmatter.get("NoteType"))
             )
             if not fallback:
                 self.count("embed empty")
@@ -107,7 +106,7 @@ class InlineDataviewModule(TransformModule):
             self.count("embed filled from fallback_images")
             target = fallback
         else:
-            target = value.strip()
+            target = value
         # The value is either a bare filename (`Moby (Rondfort).jpg`) or a
         # wikilink (`[[Moby (Rondfort).jpg]]`). Reduce both to the filename.
         refs = parse_refs(target)

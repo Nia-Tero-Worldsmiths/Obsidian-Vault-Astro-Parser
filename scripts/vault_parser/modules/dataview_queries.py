@@ -26,9 +26,8 @@ from __future__ import annotations
 import html
 import re
 
-from .. import dataview, linking
+from .. import dataview, infobox as ib, linking
 from ..dataview import Column, Query, UnsupportedQuery
-from ..infobox import normalize_type_key
 from ..model import Note, VaultContext, index_key
 from ..slugs import natural_key
 from .base import TransformModule
@@ -166,14 +165,14 @@ class DataviewQueriesModule(TransformModule):
         size: tuple[int, int | None] | None = None,
     ) -> str:
         raw = note.frontmatter.get(field)
-        if isinstance(raw, str) and raw.strip():
-            target = raw.strip()
-        else:
+        # A gallery note holds a list here; a roster row wants one portrait.
+        target = ib.first_image_ref(raw)
+        if not target:
             # A roster row for someone with no portrait. The stand-in is keyed
             # on the *subject's* NoteType, not the page the table sits on --
             # this is a list of people whichever note is showing it.
             target = ctx.config.fallback_images.get(
-                normalize_type_key(note.frontmatter.get("NoteType"))
+                ib.normalize_type_key(note.frontmatter.get("NoteType"))
             )
             if not target:
                 self.count("portrait missing")

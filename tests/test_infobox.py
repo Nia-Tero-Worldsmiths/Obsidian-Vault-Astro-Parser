@@ -174,6 +174,43 @@ class RowShape(unittest.TestCase):
         self.assertIsNone(empty.layout_for("lugar"))
 
 
+class NoInfoboxTypes(unittest.TestCase):
+    """`infobox: false` -- a NoteType declared as carrying no infobox.
+
+    Three states, not two: rows to render, a type absent from the table (a
+    mistake, said loudly on the page), and a type that deliberately has none
+    (a decision, reported in the build and silent on the page). Only the
+    middle one is an error.
+    """
+
+    def test_a_layout_with_rows_is_not_suppressed(self):
+        self.assertFalse(ib.suppressed({"rows": ["ubicacion"]}))
+        self.assertFalse(ib.suppressed(TABLE.layouts["persona"]))
+
+    def test_an_explicit_false_suppresses(self):
+        self.assertTrue(ib.suppressed({"infobox": False}))
+
+    def test_an_explicit_true_does_not(self):
+        self.assertFalse(ib.suppressed({"infobox": True}))
+
+    def test_an_absent_or_empty_layout_is_not_suppressed(self):
+        # Absent means "nobody has defined this yet", which must stay loud.
+        self.assertFalse(ib.suppressed(None))
+        self.assertFalse(ib.suppressed({}))
+
+    def test_a_suppressed_type_still_resolves_as_a_known_layout(self):
+        # It has to, or it would fall through to the unknown-NoteType warning.
+        table_ = table(layouts={"prosa": {"infobox": False}})
+        layout = table_.layout_for("Prosa")
+        self.assertIsNotNone(layout)
+        self.assertTrue(ib.suppressed(layout))
+
+    def test_only_a_real_false_counts(self):
+        # A truthy-but-not-True value must not be read as a suppression.
+        for value in ("false", 0, None, []):
+            self.assertFalse(ib.suppressed({"infobox": value}), value)
+
+
 class Title(unittest.TestCase):
     def test_prefers_title_lang_then_title_then_filename(self):
         fm = {"title": "Gran Pantano", "title_ja": "大湿地"}

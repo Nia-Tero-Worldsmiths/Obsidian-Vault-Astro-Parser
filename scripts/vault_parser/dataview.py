@@ -42,8 +42,16 @@ _COMMENT = re.compile(r'(?<!:)//(?=(?:[^"]*"[^"]*")*[^"]*$).*$', re.MULTILINE)
 # does. So `"500x500"` is a size, and dropping it is why cards whose portraits
 # have different aspect ratios render at different heights here while Obsidian
 # shows them uniformly.
+#
+# The field may carry an index: `imagen[0]`. Once a note can hold several
+# images, writing the bare field makes Obsidian render *all* of them, bulleted,
+# inside one table cell -- so a roster query has to ask for one. The parser
+# resolves a list to its first entry anyway, so the index changes nothing here;
+# it only has to be accepted, or the whole query is left unrendered as a fence
+# on the published page.
 _EMBED_COLUMN = re.compile(
-    r"^embed\(\s*link\(\s*(?P<field>[A-Za-zÀ-ÿ_][\w.]*)\s*"
+    r"^embed\(\s*link\(\s*(?P<field>[A-Za-zÀ-ÿ_][\w.]*)"
+    r"\s*(?:\[\s*(?P<index>\d+)\s*\])?\s*"
     r"""(?:,\s*(?P<quote>["'])(?P<size>[^"']*)(?P=quote)\s*)?\)\s*\)$""",
     re.IGNORECASE,
 )

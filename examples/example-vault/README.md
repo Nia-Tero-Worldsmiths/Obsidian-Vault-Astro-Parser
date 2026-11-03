@@ -31,7 +31,7 @@ here, so `vault_root` is the only line that needs changing.
 |---|---|
 | `World Atlas/Puerto Ejemplo.md` | infobox callout, resolved and unresolved links, a dataview block, an inline query, a stripped comment, an empty heading |
 | `World Encyclopedia/Gremio de Ejemplo.md` | a table with column alignment, tags, an embed that provenance blocks |
-| `Prosa/1 - Fragmento.md` | the `prosa` cssclass, a horizontal rule, a note with no outgoing links |
+| `Prosa/1 - Fragmento.md` | the `prosa` cssclass, a horizontal rule, a note with no outgoing links, and an `i18n-infobox` fence in a NoteType the table marks `infobox: false` -- dropped and reported, not drawn as a warning |
 | `_Borrador privado.md` | never emitted: `ignore_globs` drops it before the publish gate is consulted |
 | `World Encyclopedia/Persona de Ejemplo.md` | `:::lang` blocks in three languages, an `i18n-infobox` fence, paired rows, an optional row, `%%` comments staying inert, a fenced sample that must not be parsed as a block |
 | `z_Templates/i18n-infobox.yaml` | the infobox translation table: labels, per-language suffix and plain prefix, controlled vocabulary, status marker, optional rows, paired rows |

@@ -144,6 +144,21 @@ class InfoboxTable:
         return None
 
 
+def suppressed(layout: dict[str, Any] | None) -> bool:
+    """Whether a layout declares that this NoteType carries no infobox.
+
+    Three states, not two. A type with rows renders them; a type absent from
+    the table is a mistake and says so on the page; and a type declared
+    `infobox: false` is a decision -- a chapter is prose, and a sidebar of
+    fields would be noise. Only the middle one is an error, so only the middle
+    one should be loud.
+
+    Declared in the table rather than in parser config because the plugin
+    reads the same file, so Obsidian and the site can agree about it.
+    """
+    return bool(layout) and layout.get("infobox") is False
+
+
 # --- reading the table ------------------------------------------------------
 
 
@@ -604,6 +619,26 @@ def normalize_image_ref(raw: Any) -> str | None:
     inner = re.sub(r"\]\]$", "", inner)
     inner = inner.strip()
     return inner or None
+
+
+def first_image_ref(raw: Any) -> str | None:
+    """The first usable image reference in a scalar *or* a list.
+
+    `imagen` was a single filename everywhere until a note wanted a gallery.
+    Readers that assumed a string -- roster portraits, the legacy infobox,
+    the licensing owner index -- silently fell through to the stand-in
+    placeholder when handed a list, so a character who gained a second image
+    lost their real portrait everywhere *except* their own infobox.
+
+    One definition so that cannot drift apart again: anywhere a single image
+    is wanted from a value that may now be a list, the answer is "the first
+    one that resolves to something".
+    """
+    for item in raw if isinstance(raw, list) else [raw]:
+        ref = normalize_image_ref(item)
+        if ref:
+            return ref
+    return None
 
 
 def resolve_image(

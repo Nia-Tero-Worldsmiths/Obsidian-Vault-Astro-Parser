@@ -88,3 +88,10 @@ layouts:
           #     clase:    [Rogue, Maga]
           #     subclase: [Arcane Trickster, Bladesinger]
           - group: [clase, subclase?]
+
+  # Declared so the block does not warn about an unknown NoteType, but these
+  # types are not meant to carry an infobox: a chapter is prose, and a sidebar
+  # of fields beside it would be noise. A fence in one of these is dropped and
+  # reported, rather than drawn as a warning on the page.
+  prosa: { infobox: false }
+  tomo: { infobox: false }

@@ -33,7 +33,13 @@ const authored = {
   NoteType: z.string().optional(),
   aliases: z.array(z.string()).optional(),
   tags: z.array(z.string()).optional(),
-  imagen: z.string().optional(),
+  // One filename, or several when the note carries a gallery. A note becomes
+  // a list the day it gains a second image, so both shapes coexist
+  // indefinitely and the schema has to accept either.
+  imagen: z.union([z.string(), z.array(z.string())]).optional(),
+  // Labels for those images, paired by position. Also used as each image's
+  // alt text, so it is worth having even on a note with a single picture.
+  imageLabel: z.union([z.string(), z.array(z.string())]).optional(),
   // Obsidian accepts both the list and single-string forms.
   cssclasses: z.union([z.string(), z.array(z.string())]).optional(),
   // Language codes the note carries content for, in configured order.

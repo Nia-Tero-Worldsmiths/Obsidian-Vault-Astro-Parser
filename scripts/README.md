@@ -339,6 +339,26 @@ the fence is a separate construct and the two never touch. The report always
 prints how many published notes are still on the old one, and
 `warn_legacy: true` lists them.
 
+### NoteTypes that carry no infobox
+
+A `NoteType` has three possible standings in the table, not two:
+
+```yaml
+layouts:
+  persona: { image: imagen, sections: [...] }   # renders
+  prosa:   { infobox: false }                   # deliberately none
+  # absent                                      # nobody defined it yet
+```
+
+Only the third is an error. A type declared `infobox: false` drops the fence
+and says so in the run report; a type missing from the table draws a warning
+box on the page, because that is a gap someone still has to fill. Keeping the
+two apart means a prose chapter is not nagged for being prose, while a
+half-finished NoteType still is.
+
+It lives in the table rather than in parser config because the plugin reads
+the same file, so Obsidian and the site can agree about it.
+
 ### Which languages the site serves
 
 Two lists, deliberately not one:
