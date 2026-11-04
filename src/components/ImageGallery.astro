@@ -23,9 +23,9 @@
 ---
 
 <script>
-  for (const root of document.querySelectorAll<HTMLElement>(".infobox-gallery")) {
-    const select = root.querySelector<HTMLSelectElement>(".gallery-select");
-    const panels = [...root.querySelectorAll<HTMLElement>(".gallery-panel")];
+  for (const root of document.querySelectorAll<HTMLElement>(".ml-infobox-gallery")) {
+    const select = root.querySelector<HTMLSelectElement>(".ml-infobox-gallery-select");
+    const panels = [...root.querySelectorAll<HTMLElement>(".ml-infobox-gallery-panel")];
     if (!select || panels.length < 2 || select.options.length !== panels.length) continue;
 
     const show = (value: string) => {

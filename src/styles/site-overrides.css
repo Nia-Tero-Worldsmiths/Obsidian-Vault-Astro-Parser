@@ -395,13 +395,20 @@ html[data-lang="ALL"] .lang-title:first-child {
  * A dropdown rather than a row of buttons: the infobox column is about 290px
  * and these labels are sentences, so three or more would never fit across it,
  * and a row that scrolls shows one option at a time. Collapsed, this is one
- * line whatever the count.
+ * line whatever the count. *
+ * The class names are the plugin's, not ours: the same note renders through
+ * `src/infobox/render.ts` inside Obsidian, and keeping one vocabulary means a
+ * rule written for either reader can be read -- or shared -- without first
+ * translating its selectors. The structures still differ (every panel exists
+ * here and is hidden, because a static page cannot re-render; the plugin builds
+ * only the selected one), so a shared rule has to target the select or the
+ * panel, not the arrangement.
  * ------------------------------------------------------------------------ */
-.gallery-select {
+.ml-infobox-gallery-select {
   display: none; /* until the script claims the gallery */
 }
 
-.infobox-gallery.is-interactive .gallery-select {
+.ml-infobox-gallery.is-interactive .ml-infobox-gallery-select {
   display: block;
   width: 100%;
   margin: 0 0 0.45em;
@@ -416,18 +423,18 @@ html[data-lang="ALL"] .lang-title:first-child {
   cursor: pointer;
 }
 
-.gallery-select:focus-visible {
+.ml-infobox-gallery-select:focus-visible {
   outline: 2px solid var(--text-accent, #d63636);
   outline-offset: 1px;
 }
 
 /* The caption carries the label when the chooser cannot. Once interactive the
  * selected option says the same thing, so it would only be repetition. */
-.infobox-gallery.is-interactive .gallery-caption {
+.ml-infobox-gallery.is-interactive .ml-infobox-gallery-caption {
   display: none;
 }
 
-.gallery-caption {
+.ml-infobox-gallery-caption {
   display: block;
   margin: 0.2em 0 0.6em;
   color: var(--text-muted, #6b6862);
@@ -435,6 +442,6 @@ html[data-lang="ALL"] .lang-title:first-child {
   text-align: center;
 }
 
-.gallery-panel[hidden] {
+.ml-infobox-gallery-panel[hidden] {
   display: none;
 }

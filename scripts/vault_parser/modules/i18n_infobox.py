@@ -245,15 +245,15 @@ class I18nInfoboxModule(TransformModule):
             # select is hidden until the script claims the gallery, so until
             # then this is a plain captioned list and every image is reachable.
             caption = (
-                f'<span class="gallery-caption">{label}</span>' if image.label else ""
+                f'<span class="ml-infobox-gallery-caption">{label}</span>' if image.label else ""
             )
             panels.append(
-                f'<div class="gallery-panel" data-index="{position}">{tag}{caption}</div>'
+                f'<div class="ml-infobox-gallery-panel" data-index="{position}">{tag}{caption}</div>'
             )
 
         return (
-            '<div class="ml-infobox-image infobox-gallery">'
-            + f'<select class="gallery-select" id="{base}-select"'
+            '<div class="ml-infobox-image ml-infobox-gallery">'
+            + f'<select class="ml-infobox-gallery-select" id="{base}-select"'
             + f' aria-label="{html.escape(title)}">'
             + "".join(options)
             + "</select>"
