@@ -632,6 +632,56 @@ def normalize_image_ref(raw: Any) -> str | None:
     return inner or None
 
 
+#: Frontmatter key naming which image stands for the note. Zero-based, to
+#: match the `imagen[0]` an indexed Dataview column already writes.
+DEFAULT_IMAGE_INDEX = "defaultImageIndex"
+
+
+def default_image_index(frontmatter: dict[str, Any], count: int) -> tuple[int, bool]:
+    """(index, ok) -- which image represents this note, and whether it was valid.
+
+    Absent means the first image, which is what every note did before the key
+    existed. An index outside the list is reported rather than clamped
+    silently: the point of the key is to be deliberate, so a stale one after
+    images are removed should be visible.
+
+    It cannot catch the subtler failure, though -- reorder `imagen` and the
+    index still resolves, just to a different picture. That is the cost of
+    addressing images by position rather than by name, and nothing here can
+    detect it.
+    """
+    raw = frontmatter.get(DEFAULT_IMAGE_INDEX)
+    if raw is None or raw == "":
+        return 0, True
+    try:
+        index = int(str(raw).strip())
+    except (TypeError, ValueError):
+        return 0, False
+    if index < 0 or (count and index >= count):
+        return 0, False
+    return index, True
+
+
+def default_image_ref(frontmatter: dict[str, Any], key: str = "imagen") -> str | None:
+    """The one image that stands for a note, wherever one is wanted.
+
+    Roster portraits and the legacy infobox embed show a single picture, and
+    which one that is should be the note's decision rather than an accident of
+    list order. Falls back to the first usable image, so the ~99 notes with a
+    single picture and no index are unaffected.
+    """
+    raw = frontmatter.get(key)
+    refs = [
+        ref
+        for ref in (normalize_image_ref(item) for item in (raw if isinstance(raw, list) else [raw]))
+        if ref
+    ]
+    if not refs:
+        return None
+    index, ok = default_image_index(frontmatter, len(refs))
+    return refs[index if ok else 0]
+
+
 def first_image_ref(raw: Any) -> str | None:
     """The first usable image reference in a scalar *or* a list.
 

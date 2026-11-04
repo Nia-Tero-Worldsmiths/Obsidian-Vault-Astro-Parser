@@ -144,6 +144,59 @@ class SizeAndFallback(unittest.TestCase):
         self.assertEqual(ib.resolve_images(TABLE, {}, {"imagen": ["a.webp"]}, "es", "es"), [])
 
 
+class DefaultImage(unittest.TestCase):
+    """`defaultImageIndex` -- which image stands for the note.
+
+    Zero-based, matching the `imagen[0]` an indexed Dataview column writes.
+    It decides the image the infobox opens on *and* the one a roster row
+    shows, because those are the same question asked twice.
+    """
+
+    THREE = ["a.webp", "b.webp", "c.webp"]
+
+    def test_absent_means_the_first_image(self):
+        # The ~99 single-image notes never write one, and must not change.
+        self.assertEqual(ib.default_image_ref({"imagen": self.THREE}), "a.webp")
+        self.assertEqual(ib.default_image_ref({"imagen": "only.webp"}), "only.webp")
+
+    def test_it_picks_the_named_position(self):
+        fm = {"imagen": self.THREE, "defaultImageIndex": 2}
+        self.assertEqual(ib.default_image_ref(fm), "c.webp")
+
+    def test_zero_is_explicit_and_valid(self):
+        fm = {"imagen": self.THREE, "defaultImageIndex": 0}
+        self.assertEqual(ib.default_image_ref(fm), "a.webp")
+        self.assertEqual(ib.default_image_index(fm, 3), (0, True))
+
+    def test_a_string_of_digits_is_accepted(self):
+        # YAML gives an int, but a quoted value should not silently fail.
+        fm = {"imagen": self.THREE, "defaultImageIndex": "2"}
+        self.assertEqual(ib.default_image_ref(fm), "c.webp")
+
+    def test_out_of_range_falls_back_and_is_flagged(self):
+        for bad in (3, 99, -1):
+            fm = {"imagen": self.THREE, "defaultImageIndex": bad}
+            self.assertEqual(ib.default_image_ref(fm), "a.webp", bad)
+            self.assertEqual(ib.default_image_index(fm, 3), (0, False), bad)
+
+    def test_nonsense_falls_back_and_is_flagged(self):
+        fm = {"imagen": self.THREE, "defaultImageIndex": "two"}
+        self.assertEqual(ib.default_image_ref(fm), "a.webp")
+        self.assertEqual(ib.default_image_index(fm, 3), (0, False))
+
+    def test_the_index_counts_usable_images_only(self):
+        # A placeholder entry is not a position a reader can choose.
+        fm = {"imagen": ["[[]]", "b.webp", "c.webp"], "defaultImageIndex": 1}
+        self.assertEqual(ib.default_image_ref(fm), "c.webp")
+
+    def test_no_images_is_still_None(self):
+        self.assertIsNone(ib.default_image_ref({"defaultImageIndex": 1}))
+
+    def test_an_empty_value_is_treated_as_absent(self):
+        fm = {"imagen": self.THREE, "defaultImageIndex": ""}
+        self.assertEqual(ib.default_image_index(fm, 3), (0, True))
+
+
 class SingleImageEntryPoint(unittest.TestCase):
     """`resolve_image` stays the one-picture answer, so old callers are safe."""
 

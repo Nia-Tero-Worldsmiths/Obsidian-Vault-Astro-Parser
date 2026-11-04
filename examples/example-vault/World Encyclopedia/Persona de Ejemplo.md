@@ -8,6 +8,9 @@ estado: Vivo
 imagen:
   - retrato-generico.svg
   - retrato-alterno.svg
+# Zero-based. Which image stands for this note: the one the infobox
+# opens on, and the one a roster row shows. Absent means the first.
+defaultImageIndex: 1
 imageLabel:
   - Retrato
   - Forma alterna (etiqueta larga a propósito)

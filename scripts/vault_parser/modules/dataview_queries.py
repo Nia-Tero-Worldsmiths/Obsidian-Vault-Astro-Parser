@@ -164,9 +164,9 @@ class DataviewQueriesModule(TransformModule):
         ctx: VaultContext,
         size: tuple[int, int | None] | None = None,
     ) -> str:
-        raw = note.frontmatter.get(field)
-        # A gallery note holds a list here; a roster row wants one portrait.
-        target = ib.first_image_ref(raw)
+        # A gallery note holds a list here; a roster row wants one portrait,
+        # and which one is the note's decision -- `defaultImageIndex`.
+        target = ib.default_image_ref(note.frontmatter, field)
         if not target:
             # A roster row for someone with no portrait. The stand-in is keyed
             # on the *subject's* NoteType, not the page the table sits on --

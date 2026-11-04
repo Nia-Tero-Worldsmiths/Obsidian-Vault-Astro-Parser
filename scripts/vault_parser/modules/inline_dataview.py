@@ -90,7 +90,7 @@ class InlineDataviewModule(TransformModule):
         Obsidian renders an empty embed here; emitting nothing is tidier than
         a broken image and keeps the infobox layout intact.
         """
-        value = ib.first_image_ref(self._lookup(field, note))
+        value = ib.default_image_ref(note.frontmatter, field)
         if not value:
             # A NoteType may name a stand-in for notes with no picture of
             # their own -- a neutral avatar reads better than an empty gap in

@@ -56,6 +56,8 @@ class I18nInfoboxModule(TransformModule):
         self._legacy: set[str] = set()
         #: NoteType -> notes that declared a fence the type does not want.
         self._suppressed: dict[str, list[str]] = {}
+        #: vault_path -> (written index, image count) for a stale default.
+        self._bad_default: dict[str, tuple[object, int]] = {}
         #: vault_path -> (images, labels) where the two lists disagree.
         self._mislabelled: dict[str, tuple[int, int]] = {}
         #: vault_path -> messages, for rows that are structurally wrong.
@@ -183,15 +185,26 @@ class I18nInfoboxModule(TransformModule):
         return f'<h1 class="ml-infobox-title">{html.escape(title)}{marker}</h1>'
 
     def _gallery_html(self, note: Note, ctx: VaultContext, images, title: str) -> str:
-        """The image block: one picture, or a switcher over several.
+        """The image block: one picture, or a dropdown over several.
 
         Two rules, deliberately separate. **Alt text** follows from a label
         existing -- wherever a note named one, that image is described by it,
-        whether or not any buttons are drawn. It replaces using the note title
-        for every image, which told a screen-reader user nothing the heading
-        above had not already said. **Buttons** follow from there being a
+        whether or not a control is drawn. It replaces using the note title for
+        every image, which told a screen-reader user nothing the heading above
+        had not already said. **The control** follows from there being a
         choice, so a single image renders exactly the markup it always did and
         a note that merely labels its one portrait does not change shape.
+
+        A dropdown rather than a row of buttons because the infobox column is
+        about 290px wide and these labels are sentences -- "Forma humana (con
+        Donatello)" alone is 182px of it. Two fit, barely; five would not, and
+        a row that scrolls shows a reader one option at a time, which is the
+        opposite of what a chooser is for. Collapsed, a dropdown is one line
+        whatever the count.
+
+        A native `<select>`, not a custom listbox: keyboard, screen reader and
+        the mobile picker all come for free, where a hand-rolled one has to
+        re-earn each of them.
         """
         rendered = [
             (image, self._img_tag(note, ctx, image, title)) for image in images
@@ -203,43 +216,47 @@ class I18nInfoboxModule(TransformModule):
         if len(rendered) == 1:
             return f'<div class="ml-infobox-image">{rendered[0][1]}</div>'
 
+        index, ok = ib.default_image_index(note.frontmatter, len(rendered))
+        if not ok and note.frontmatter.get(ib.DEFAULT_IMAGE_INDEX) is not None:
+            self._bad_default[note.vault_path] = (
+                note.frontmatter[ib.DEFAULT_IMAGE_INDEX],
+                len(rendered),
+            )
+            note.warn(
+                f"`{ib.DEFAULT_IMAGE_INDEX}` is not a position in this note's "
+                f"{len(rendered)} image(s); showing the first"
+            )
+
         # Derived from the note and language, never from a counter: a
         # per-render number would differ between builds and break the `dist/`
         # fingerprint CI uses to tell "nothing changed" from "something did".
         base = f"{note.slug}-{note.active_language or 'x'}-img"
         self.count("image galleries rendered")
 
-        tabs: list[str] = []
+        options: list[str] = []
         panels: list[str] = []
-        for index, (image, tag) in enumerate(rendered):
-            selected = "true" if index == 0 else "false"
-            label = html.escape(image.label or f"{index + 1}")
-            tabs.append(
-                f'<button type="button" role="tab" class="gallery-tab"'
-                f' id="{base}-tab-{index}" aria-controls="{base}-panel-{index}"'
-                f' aria-selected="{selected}" tabindex="{0 if index == 0 else -1}">'
-                f"{label}</button>"
+        for position, (image, tag) in enumerate(rendered):
+            label = html.escape(image.label or f"{position + 1}")
+            options.append(
+                f'<option value="{position}"'
+                f'{" selected" if position == index else ""}>{label}</option>'
             )
-            # The caption is what the label looks like with no JavaScript:
-            # the tab bar is hidden until the script claims the gallery, so
-            # until then this is a plain captioned list and every image is
-            # reachable. The script swaps which of the two is shown.
+            # The caption is what the label looks like with no JavaScript: the
+            # select is hidden until the script claims the gallery, so until
+            # then this is a plain captioned list and every image is reachable.
             caption = (
                 f'<span class="gallery-caption">{label}</span>' if image.label else ""
             )
             panels.append(
-                f'<div role="tabpanel" class="gallery-panel"'
-                f' id="{base}-panel-{index}" aria-labelledby="{base}-tab-{index}">'
-                f"{tag}{caption}</div>"
+                f'<div class="gallery-panel" data-index="{position}">{tag}{caption}</div>'
             )
 
-        # No `hidden` on the panels: without JavaScript every image stays
-        # reachable as a stacked list, and the script switches it to tabs.
         return (
             '<div class="ml-infobox-image infobox-gallery">'
-            + f'<div class="gallery-tabs" role="tablist" aria-label="{html.escape(title)}">'
-            + "".join(tabs)
-            + "</div>"
+            + f'<select class="gallery-select" id="{base}-select"'
+            + f' aria-label="{html.escape(title)}">'
+            + "".join(options)
+            + "</select>"
             + "".join(panels)
             + "</div>"
         )
@@ -331,11 +348,34 @@ class I18nInfoboxModule(TransformModule):
     # -- report ----------------------------------------------------------
 
     def finalize(self, ctx: VaultContext) -> None:
+        self._report_bad_default()
         self._report_mislabelled()
         self._report_suppressed()
         self._report_unknown_types()
         self._report_problems()
         self._report_legacy()
+
+    def _report_bad_default(self) -> None:
+        """A `defaultImageIndex` that names no image this note has.
+
+        Reported rather than clamped, because the key exists to be deliberate:
+        one left behind after images were removed should be seen. Note this
+        catches only an index out of range -- reorder the list and a still-valid
+        index quietly points somewhere else, which nothing here can detect.
+        """
+        if not self._bad_default:
+            return
+        lines = [
+            f"`{ib.DEFAULT_IMAGE_INDEX}` is zero-based and must name one of the",
+            "note's own images. These do not, so the first image was shown.",
+            "",
+        ]
+        for path, (written, count) in sorted(self._bad_default.items())[:15]:
+            lines.append(f"  {path}")
+            lines.append(f"      wrote {written!r}, has {count} image(s)")
+        if len(self._bad_default) > 15:
+            lines.append(f"  ... and {len(self._bad_default) - 15} more")
+        self.section("Infobox: default image out of range", lines)
 
     def _report_mislabelled(self) -> None:
         if not self._mislabelled:

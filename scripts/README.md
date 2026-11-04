@@ -374,13 +374,39 @@ Two rules decide what gets drawn, and they are deliberately separate:
   markup it always did, so a note that merely labels its single portrait does
   not change shape.
 
-The markup is a tablist with one panel per image, and the ids are built from
-the slug and language (`{slug}-{lang}-img-{n}`) rather than a counter --
-a per-render number would differ between builds and break the `dist/`
-fingerprint CI uses. `src/components/ImageGallery.astro` adds `is-interactive`
-and wires the tabs; until it does, every panel is visible with its label as a
-caption, so with no JavaScript a gallery is a captioned list and no image is
-unreachable.
+The chooser is a native `<select>`, not a row of buttons. The infobox column
+is about 290px wide and these labels are sentences -- "Forma humana (con
+Donatello)" is 182px of it on its own. Two fit across, barely; five would not,
+and a row that scrolls shows a reader one option at a time, which is the
+opposite of what a chooser is for. Collapsed, a dropdown is one line whatever
+the count, and being native it gets keyboard, screen-reader and mobile-picker
+behaviour for free.
+
+Ids come from the slug and language (`{slug}-{lang}-img`) rather than a
+counter -- a per-render number would differ between builds and break the
+`dist/` fingerprint CI uses. `src/components/ImageGallery.astro` adds
+`is-interactive` and wires the select; until it does, every panel is visible
+with its label as a caption, so with no JavaScript a gallery is a captioned
+list and no image is unreachable.
+
+### Which image stands for a note
+
+`defaultImageIndex` is zero-based and answers one question asked in two
+places: the image the infobox opens on, and the image shown where the note is
+referenced -- a roster portrait, a legacy infobox embed. Absent means the
+first, so the ~99 single-image notes never write one.
+
+```yaml
+imagen: [Aronne Laqua.webp, Aronne y Donatello.webp]
+defaultImageIndex: 1
+```
+
+An index out of range is reported and falls back to the first image, rather
+than being clamped silently: the key exists to be deliberate, so one left
+behind after images were removed should be seen. What it cannot catch is the
+subtler case -- reorder `imagen` and a still-valid index quietly points at a
+different picture. That is the standing cost of addressing images by position
+instead of by name, and worth remembering when rearranging a list.
 
 `imagen` stays a plain string on the ~100 notes that have one picture. Both
 shapes are read everywhere -- `infobox.first_image_ref` is the single answer
