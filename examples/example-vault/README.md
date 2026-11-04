@@ -33,10 +33,11 @@ here, so `vault_root` is the only line that needs changing.
 | `World Encyclopedia/Gremio de Ejemplo.md` | a table with column alignment, tags, an embed that provenance blocks |
 | `Prosa/1 - Fragmento.md` | the `prosa` cssclass, a horizontal rule, a note with no outgoing links, and an `i18n-infobox` fence in a NoteType the table marks `infobox: false` -- dropped and reported, not drawn as a warning |
 | `_Borrador privado.md` | never emitted: `ignore_globs` drops it before the publish gate is consulted |
-| `World Encyclopedia/Persona de Ejemplo.md` | `:::lang` blocks in three languages, an `i18n-infobox` fence, paired rows, an optional row, `%%` comments staying inert, a fenced sample that must not be parsed as a block |
+| `World Encyclopedia/Persona de Ejemplo.md` | `:::lang` blocks in three languages, an `i18n-infobox` fence, paired rows, an optional row, two labelled images whose labels become both the switcher buttons and the alt text (one translated through the table's vocabulary, one left to fall back), `%%` comments staying inert, a fenced sample that must not be parsed as a block |
 | `z_Templates/i18n-infobox.yaml` | the infobox translation table: labels, per-language suffix and plain prefix, controlled vocabulary, status marker, optional rows, paired rows |
 | `z_Assets/CREDITS.yaml` | one image published, one blocked |
 | `z_Assets/retrato-generico.svg` | the `fallback_images:` stand-in portrait |
+| `z_Assets/retrato-alterno.svg` | the second image of the gallery, so the switcher has something to switch to |
 
 ## What is not here
 

@@ -56,6 +56,8 @@ class I18nInfoboxModule(TransformModule):
         self._legacy: set[str] = set()
         #: NoteType -> notes that declared a fence the type does not want.
         self._suppressed: dict[str, list[str]] = {}
+        #: vault_path -> (images, labels) where the two lists disagree.
+        self._mislabelled: dict[str, tuple[int, int]] = {}
         #: vault_path -> messages, for rows that are structurally wrong.
         self._problems: dict[str, list[str]] = {}
 
@@ -113,15 +115,16 @@ class I18nInfoboxModule(TransformModule):
         title = ib.resolve_title(layout, note.frontmatter, lang, default, note.source.stem)
         sections = ib.resolve_infobox(table, layout, note.frontmatter, lang, default)
         status = ib.resolve_status(table, layout, note.frontmatter, lang, default)
-        ref, size = ib.resolve_image(table, layout, note.frontmatter, lang, default)
-        if not ref:
+        images = ib.resolve_images(table, layout, note.frontmatter, lang, default)
+        if not images:
             # The layout named no stand-in; the parser-side mapping is the
             # one that works without editing the vault's table.
-            ref = ctx.config.fallback_images.get(
-                ib.normalize_type_key(note_type)
-            ) or None
+            ref = ctx.config.fallback_images.get(ib.normalize_type_key(note_type))
             if ref:
+                images = [ib.GalleryImage(ref)]
                 self.count("portraits filled from fallback_images")
+
+        self._audit_labels(note, layout, table, lang, default, images)
 
         for section in sections:
             for row in section.rows:
@@ -129,11 +132,11 @@ class I18nInfoboxModule(TransformModule):
                     self._problems.setdefault(note.vault_path, []).append(row.problem)
 
         self.count("infoboxes rendered")
-        return self._paint(note, ctx, title, status, ref, size, sections)
+        return self._paint(note, ctx, title, status, images, sections)
 
     # -- markup ----------------------------------------------------------
 
-    def _paint(self, note, ctx, title, status, ref, size, sections) -> str:
+    def _paint(self, note, ctx, title, status, images, sections) -> str:
         """Build the plugin's DOM.
 
         `data-callout="infobox"` is deliberate: it is what makes the vault
@@ -148,9 +151,9 @@ class I18nInfoboxModule(TransformModule):
             self._title_html(title, status),
         ]
 
-        image = self._image_html(note, ctx, ref, size, title)
-        if image:
-            parts.append(f'<div class="ml-infobox-image">{image}</div>')
+        gallery = self._gallery_html(note, ctx, images, title)
+        if gallery:
+            parts.append(gallery)
 
         for section in sections:
             if not section.rows:
@@ -179,22 +182,87 @@ class I18nInfoboxModule(TransformModule):
             )
         return f'<h1 class="ml-infobox-title">{html.escape(title)}{marker}</h1>'
 
-    def _image_html(self, note: Note, ctx: VaultContext, ref, size, title) -> str:
-        if not ref:
+    def _gallery_html(self, note: Note, ctx: VaultContext, images, title: str) -> str:
+        """The image block: one picture, or a switcher over several.
+
+        Two rules, deliberately separate. **Alt text** follows from a label
+        existing -- wherever a note named one, that image is described by it,
+        whether or not any buttons are drawn. It replaces using the note title
+        for every image, which told a screen-reader user nothing the heading
+        above had not already said. **Buttons** follow from there being a
+        choice, so a single image renders exactly the markup it always did and
+        a note that merely labels its one portrait does not change shape.
+        """
+        rendered = [
+            (image, self._img_tag(note, ctx, image, title)) for image in images
+        ]
+        rendered = [(image, tag) for image, tag in rendered if tag]
+        if not rendered:
             return ""
-        resolved = linking.resolve_image(ref, ctx)
+
+        if len(rendered) == 1:
+            return f'<div class="ml-infobox-image">{rendered[0][1]}</div>'
+
+        # Derived from the note and language, never from a counter: a
+        # per-render number would differ between builds and break the `dist/`
+        # fingerprint CI uses to tell "nothing changed" from "something did".
+        base = f"{note.slug}-{note.active_language or 'x'}-img"
+        self.count("image galleries rendered")
+
+        tabs: list[str] = []
+        panels: list[str] = []
+        for index, (image, tag) in enumerate(rendered):
+            selected = "true" if index == 0 else "false"
+            label = html.escape(image.label or f"{index + 1}")
+            tabs.append(
+                f'<button type="button" role="tab" class="gallery-tab"'
+                f' id="{base}-tab-{index}" aria-controls="{base}-panel-{index}"'
+                f' aria-selected="{selected}" tabindex="{0 if index == 0 else -1}">'
+                f"{label}</button>"
+            )
+            # The caption is what the label looks like with no JavaScript:
+            # the tab bar is hidden until the script claims the gallery, so
+            # until then this is a plain captioned list and every image is
+            # reachable. The script swaps which of the two is shown.
+            caption = (
+                f'<span class="gallery-caption">{label}</span>' if image.label else ""
+            )
+            panels.append(
+                f'<div role="tabpanel" class="gallery-panel"'
+                f' id="{base}-panel-{index}" aria-labelledby="{base}-tab-{index}">'
+                f"{tag}{caption}</div>"
+            )
+
+        # No `hidden` on the panels: without JavaScript every image stays
+        # reachable as a stacked list, and the script switches it to tabs.
+        return (
+            '<div class="ml-infobox-image infobox-gallery">'
+            + f'<div class="gallery-tabs" role="tablist" aria-label="{html.escape(title)}">'
+            + "".join(tabs)
+            + "</div>"
+            + "".join(panels)
+            + "</div>"
+        )
+
+    def _img_tag(self, note: Note, ctx: VaultContext, image, title: str) -> str:
+        if not image.ref:
+            return ""
+        resolved = linking.resolve_image(image.ref, ctx)
         if resolved is None:
             self.count("portrait missing asset")
-            note.warn(f"infobox image not found: {ref}")
+            note.warn(f"infobox image not found: {image.ref}")
             return ""
 
         url, asset = resolved
         if asset is not None:
             ctx.referenced_assets.add(asset.vault_path)
 
-        attrs = f'src="{html.escape(url)}" alt="{html.escape(title)}"'
-        if size:
-            width, _, height = str(size).partition("x")
+        # The label describes this picture; the title describes the note, and
+        # is only worth repeating when there is nothing better.
+        alt = image.label or title
+        attrs = f'src="{html.escape(url)}" alt="{html.escape(alt)}"'
+        if image.size:
+            width, _, height = str(image.size).partition("x")
             if width.strip().isdigit():
                 attrs += f' width="{width.strip()}"'
             if height.strip().isdigit():
@@ -243,13 +311,47 @@ class I18nInfoboxModule(TransformModule):
                  html.escape(row.suffix) if row.suffix else ""]
         return " ".join(part for part in parts if part)
 
+    def _audit_labels(self, note, layout, table, lang, default, images) -> None:
+        """Note when labels and images do not line up.
+
+        Not fatal -- a half-labelled gallery still renders, and the unlabelled
+        buttons fall back to their position. But two parallel lists can drift,
+        which is the one cost of this shape over a combined one, so it should
+        never drift silently.
+        """
+        if len(images) < 2:
+            return
+        labels = ib.resolve_value(
+            table, note.frontmatter, ib.label_key_for(layout), lang, default
+        ) or []
+        if len(labels) == len(images):
+            return
+        self._mislabelled[note.vault_path] = (len(images), len(labels))
+
     # -- report ----------------------------------------------------------
 
     def finalize(self, ctx: VaultContext) -> None:
+        self._report_mislabelled()
         self._report_suppressed()
         self._report_unknown_types()
         self._report_problems()
         self._report_legacy()
+
+    def _report_mislabelled(self) -> None:
+        if not self._mislabelled:
+            return
+        lines = [
+            "`imagen` and `imageLabel` are paired by position, and these notes",
+            "give a different number of each. The extra images keep their place",
+            "and fall back to a numbered button; the extra labels are dropped.",
+            "",
+        ]
+        for path, (images, labels) in sorted(self._mislabelled.items())[:15]:
+            lines.append(f"  {path}")
+            lines.append(f"      {images} image(s), {labels} label(s)")
+        if len(self._mislabelled) > 15:
+            lines.append(f"  ... and {len(self._mislabelled) - 15} more")
+        self.section("Infobox: images and labels do not line up", lines)
 
     def _report_suppressed(self) -> None:
         """Fences dropped because their NoteType declares `infobox: false`.

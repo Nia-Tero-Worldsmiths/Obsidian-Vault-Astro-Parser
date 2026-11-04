@@ -339,6 +339,54 @@ the fence is a separate construct and the two never touch. The report always
 prints how many published notes are still on the old one, and
 `warn_legacy: true` lists them.
 
+### Several images in one infobox
+
+A note may name more than one picture, each with a label, and the site draws a
+switcher:
+
+```yaml
+imagen:
+  - Aronne Laqua.webp
+  - Aronne y Donatello.webp
+imageLabel:
+  - Forma verdadera
+  - Forma humana (con Donatello)
+```
+
+The two are parallel lists paired by position, the same way `clase` and
+`subclase` are. That shape was chosen over a combined `file :: label` string
+for one reason above all: a label has to be translatable on its own.
+`imageLabel_ja: [肖像, 鎧]` overrides only the words, where a combined string
+would force every filename to be restated in every language, free to drift.
+
+Translation needs no new code -- labels go through `resolve_positional_values`
+like any other value, so `imageLabel_ja` works per note and, more usefully,
+`values.imageLabel` in the table translates a label once for the whole vault.
+*Retrato* and *Armadura* repeat across notes, which is what that table is for.
+
+Two rules decide what gets drawn, and they are deliberately separate:
+
+- **Alt text** follows from a label existing. Wherever one is given it
+  describes that image, with or without a switcher. It replaces using the note
+  title for every picture, which told a screen-reader user nothing the heading
+  above had not already said.
+- **Buttons** follow from there being a choice. One image renders exactly the
+  markup it always did, so a note that merely labels its single portrait does
+  not change shape.
+
+The markup is a tablist with one panel per image, and the ids are built from
+the slug and language (`{slug}-{lang}-img-{n}`) rather than a counter --
+a per-render number would differ between builds and break the `dist/`
+fingerprint CI uses. `src/components/ImageGallery.astro` adds `is-interactive`
+and wires the tabs; until it does, every panel is visible with its label as a
+caption, so with no JavaScript a gallery is a captioned list and no image is
+unreachable.
+
+`imagen` stays a plain string on the ~100 notes that have one picture. Both
+shapes are read everywhere -- `infobox.first_image_ref` is the single answer
+to "which image does a one-picture context use" -- so notes convert one at a
+time and nothing has to be migrated in a batch.
+
 ### NoteTypes that carry no infobox
 
 A `NoteType` has three possible standings in the table, not two:

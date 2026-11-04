@@ -57,6 +57,13 @@ status:
 # Controlled vocabulary: translated once, and it holds for every note. A note
 # that writes `especie_ja` of its own always wins over this.
 values:
+  # Image labels are controlled vocabulary like any other: written once in the
+  # note, translated once here, and reused by every note that says the same
+  # thing. A note that needs a one-off wording overrides it with
+  # `imageLabel_ja` instead.
+  imageLabel:
+    Retrato: { ja: 肖像, en: Portrait }
+
   especie:
     Humano: { ja: "人間", en: "Human" }
     Aksolotl: { ja: "アホロートル", en: "Axolotl" }

@@ -28,6 +28,7 @@ import "../styles/vault-theme.css";
 // base.css, and the reason the two are separate files.
 import "../styles/site-overrides.css";
 
+import ImageGallery from "../components/ImageGallery.astro";
 import LanguageBar from "../components/LanguageBar.astro";
 
 interface Props {
@@ -134,6 +135,10 @@ const navTree = Object.values(generated)[0] ?? { children: [] };
     {/* Styles + pan/zoom behaviour for maps the parser rendered. No-ops
         elsewhere; the markup itself comes from Module 8. */}
     <ZoomMap />
+
+    {/* Tab behaviour for infobox galleries. Like ZoomMap it renders
+        nothing; the markup comes from the parser. */}
+    <ImageGallery />
 
     <script>
       // Expand/collapse the whole navigation tree.

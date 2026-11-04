@@ -1,0 +1,68 @@
+---
+/**
+ * Behaviour for the infobox image galleries the parser emits.
+ *
+ * Renders no markup of its own, the same way `ZoomMap.astro` does for maps:
+ * the HTML comes from `modules/i18n_infobox.py`, and this only claims it and
+ * makes it interactive. Mounted once in the layout; a no-op on the pages
+ * that have no gallery, which is most of them.
+ *
+ * **Progressive enhancement is the whole design.** The parser emits every
+ * panel visible with its label as a caption, so with no JavaScript a gallery
+ * is a plain captioned list and no image is unreachable. Adding
+ * `is-interactive` is what turns it into tabs — so the tab bar is hidden
+ * until something can actually handle a click, and nothing ever presents a
+ * control that does nothing.
+ */
+---
+
+<script>
+  type Gallery = {
+    root: HTMLElement;
+    tabs: HTMLButtonElement[];
+    panels: HTMLElement[];
+  };
+
+  function select(gallery: Gallery, index: number, focus = false) {
+    gallery.tabs.forEach((tab, i) => {
+      const active = i === index;
+      tab.setAttribute("aria-selected", String(active));
+      // Roving tabindex: the tablist is one stop, and the arrows move within
+      // it. Leaving every tab focusable would make a two-image infobox cost
+      // two extra tab presses to walk past.
+      tab.tabIndex = active ? 0 : -1;
+      gallery.panels[i]?.toggleAttribute("hidden", !active);
+    });
+    if (focus) gallery.tabs[index]?.focus();
+  }
+
+  for (const root of document.querySelectorAll<HTMLElement>(".infobox-gallery")) {
+    const tabs = [...root.querySelectorAll<HTMLButtonElement>(".gallery-tab")];
+    const panels = [...root.querySelectorAll<HTMLElement>(".gallery-panel")];
+    if (tabs.length < 2 || tabs.length !== panels.length) continue;
+
+    const gallery: Gallery = { root, tabs, panels };
+    root.classList.add("is-interactive");
+    select(gallery, 0);
+
+    tabs.forEach((tab, index) => {
+      tab.addEventListener("click", () => select(gallery, index));
+      tab.addEventListener("keydown", (event: KeyboardEvent) => {
+        const last = tabs.length - 1;
+        const next =
+          event.key === "ArrowRight" || event.key === "ArrowDown"
+            ? (index === last ? 0 : index + 1)
+            : event.key === "ArrowLeft" || event.key === "ArrowUp"
+              ? (index === 0 ? last : index - 1)
+              : event.key === "Home"
+                ? 0
+                : event.key === "End"
+                  ? last
+                  : -1;
+        if (next < 0) return;
+        event.preventDefault();
+        select(gallery, next, true);
+      });
+    });
+  }
+</script>

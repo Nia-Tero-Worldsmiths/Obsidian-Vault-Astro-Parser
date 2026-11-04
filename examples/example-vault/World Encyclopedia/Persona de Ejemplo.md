@@ -5,6 +5,12 @@ title_ja: 見本の人物
 title_en: Example Person
 publish: true
 estado: Vivo
+imagen:
+  - retrato-generico.svg
+  - retrato-alterno.svg
+imageLabel:
+  - Retrato
+  - Forma alterna (etiqueta larga a propósito)
 especie: Humano
 edad: "34"
 titulos:

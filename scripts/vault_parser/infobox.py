@@ -112,6 +112,17 @@ class ResolvedSection:
 
 
 @dataclass(frozen=True)
+class GalleryImage:
+    """One image in an infobox, with the label that names it."""
+
+    ref: str
+    size: str | None = None
+    #: Shown on the switcher button, and used as the image's alt text. Empty
+    #: when the note gave fewer labels than images.
+    label: str = ""
+
+
+@dataclass(frozen=True)
 class ResolvedStatus:
     symbol: str
     tooltip: str
@@ -641,6 +652,80 @@ def first_image_ref(raw: Any) -> str | None:
     return None
 
 
+def label_key_for(layout: dict[str, Any]) -> str:
+    """The frontmatter key holding this layout's image labels.
+
+    Defaults to `imageLabel`, which is also the property name notes use, so
+    no layout in the table has to declare anything for a gallery to work.
+    """
+    return str(layout.get("imageLabel") or "imageLabel")
+
+
+def resolve_images(
+    table: InfoboxTable,
+    layout: dict[str, Any],
+    frontmatter: dict[str, Any],
+    lang: str,
+    default: str,
+) -> list[GalleryImage]:
+    """Every image the layout asks for, each with the label that names it.
+
+    Images and labels are two parallel lists paired by position, the same way
+    `clase` and `subclase` are -- and for the same reason: a label has to be
+    translatable on its own (`imageLabel_ja`) without restating the filenames
+    it belongs to.
+
+    Both sides go through the ordinary value resolution, so `imagen_ja` gives
+    a different picture per language and a label is translated either by a
+    per-note `imageLabel_ja` or, more usefully, by the shared `values:`
+    vocabulary -- *Retrato* and *Armadura* repeat across notes, which is
+    exactly what that table is for. None of that is new code.
+
+    A note with fewer labels than images keeps the unlabelled ones; the caller
+    reports it. A note with no usable image at all falls back to the layout's
+    `imageFallback`, as before.
+    """
+    key = layout.get("image")
+    if not key:
+        return []
+
+    refs = resolve_value(table, frontmatter, str(key), lang, default) or []
+    labels = resolve_value(table, frontmatter, label_key_for(layout), lang, default) or []
+
+    images = [
+        GalleryImage(*_split_size(ref, layout), label=_label_at(labels, index))
+        for index, ref in enumerate(normalize_image_ref(r) for r in refs)
+        if ref
+    ]
+    if images:
+        return images
+
+    fallback = normalize_image_ref(layout.get("imageFallback"))
+    # The stand-in is not a picture *of* anything, so it takes no label even
+    # when the note supplied one.
+    return [GalleryImage(*_split_size(fallback, layout))] if fallback else []
+
+
+def _label_at(values: list[str], index: int) -> str:
+    """The label for an image position, or "" when the note gave fewer.
+
+    Deliberately not `_at`: that name already belongs to the paired-row
+    helper, which must return None for a hole because `_group_rows` tests
+    identity against it. Returning "" there would turn every gap into an
+    empty row instead of dropping it.
+    """
+    return values[index] if index < len(values) else ""
+
+
+def _split_size(ref: str, layout: dict[str, Any]) -> tuple[str, str | None]:
+    """Separate a trailing `|size`, preferring one the author wrote."""
+    if "|" in ref:
+        name, _, inline = ref.partition("|")
+        return name.strip(), inline.strip() or None
+    size = layout.get("imageSize")
+    return ref, str(size) if size else None
+
+
 def resolve_image(
     table: InfoboxTable,
     layout: dict[str, Any],
@@ -648,31 +733,11 @@ def resolve_image(
     lang: str,
     default: str,
 ) -> tuple[str | None, str | None]:
-    """(reference, size) for the layout's image, either possibly None.
+    """(reference, size) for the layout's first image, either possibly None.
 
-    Routed through the ordinary value resolution so `imagen_ja` works like any
-    other key -- a map or diagram with translated labels is a real case in a
-    world atlas. Only the first value is used.
+    Kept as the single-image entry point so callers that only ever want one
+    picture -- and the tests written against them -- need not care that a note
+    may now carry several.
     """
-    key = layout.get("image")
-    if not key:
-        return None, None
-
-    values = resolve_value(table, frontmatter, str(key), lang, default)
-    ref = normalize_image_ref(values[0]) if values else None
-    if not ref:
-        # A layout may name a stand-in for notes with no picture of their own.
-        # This is an extension of the plugin's model, proposed back to it so
-        # that Obsidian and the site agree on what a portrait-less note looks
-        # like; until the plugin has it, the parser also accepts the same
-        # mapping from `fallback_images:` in vault.config.yaml.
-        return normalize_image_ref(layout.get("imageFallback")), None
-
-    size = layout.get("imageSize")
-    # Never override a size the author already wrote inside the link.
-    if size and "|" not in ref:
-        return ref, str(size)
-    if "|" in ref:
-        ref, _, inline = ref.partition("|")
-        return ref.strip(), inline.strip() or None
-    return ref, None
+    images = resolve_images(table, layout, frontmatter, lang, default)
+    return (images[0].ref, images[0].size) if images else (None, None)
