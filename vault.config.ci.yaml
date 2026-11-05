@@ -114,7 +114,7 @@ i18n:
   # Shared infobox translation table, read out of the vault. Read-only, and
   # deliberately inside `z_Templates` (which the note walk ignores) because it
   # is configuration rather than a note.
-  infobox_table: z_Templates/i18n-infobox.yaml
+  infobox_table: z_Templates/i18n-manager.yaml
 
 # Stand-in images, by NoteType, for a note that has no usable picture of its
 # own -- either it names none, or the one it names is not publishable under
@@ -145,6 +145,11 @@ modules:
     enabled: true
     hidden_tags: [WIP, Borrar, Cambiar, TODO]
   dataview_queries: { enabled: true }
+  # The native table of related notes, replacing the ```dataview fences. What
+  # it selects, how it sorts and how it splits into sections are all layout
+  # data in the shared table, so a roster and a chapter list are one module.
+  # Runs beside dataview_queries, which keeps rendering what has not moved.
+  i18n_query: { enabled: true }
   # Renders the ```i18n-infobox fence the i18n Manager plugin owns, from the
   # note's NoteType plus the shared table. The hand-written >[!infobox] callout
   # still renders too (callouts + inline_dataview), so the vault can convert a

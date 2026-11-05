@@ -508,6 +508,85 @@ survive, so a reader is never told a placeholder is a likeness.
 It does not override an author's choice: a note whose `=embed(...)` line is
 commented out keeps no portrait, because there is no embed left to fill.
 
+### Query tables: the `i18n-query` fence
+
+The native replacement for the ```dataview tables. The fence is usually empty,
+because the layout comes from the note's own NoteType and the filter term from
+its own name:
+
+````markdown
+```i18n-query
+```
+````
+
+```yaml
+groups:
+  organizacion:
+    members: { tag: true, field: organizacion }
+    columns:
+      - { kind: image, key: imagen, size: "500x500", label: retrato }
+      - { kind: link, label: nombre }
+    sort: { by: title }
+    sections:
+      - { label: miembros }
+      - { label: secundarios, tag: secundario }
+```
+
+`groups:` is optional, unlike `layouts:`. Everything that distinguishes one use
+of the fence from another is data here, never code in the module -- which is
+why a roster and a chapter list are the same component:
+
+| | roster | chapter list |
+|---|---|---|
+| `members` | `{tag: true, field: organizacion}` | `{tag: false, field: padre}` |
+| `sort` | `{by: title}` | `{by: file.name, numeric: true}` |
+
+**Membership** is "either, or": a note belongs when a tag folds to the term
+**or** the layout's `members.field` names the subject. The second half is what
+finds a member carrying no tags at all. One term covers both because
+`grouping.normalize_term` drops case, accents and separators, reconciling the
+vault's three spellings:
+
+    #blackShawarma       [[Black Shawarma]]        -> blackshawarma
+    #custodios-de-juutei [[Custodios de Juutei]]   -> custodiosdejuutei
+
+Two fence keys exist for a table whose tag is a *role* rather than the
+subject's name: `from:` overrides the term, `not:` names a tag that
+disqualifies a row outright.
+
+**Sections** are optional and need no fence syntax. A row lands in the first
+section whose `tag` it carries; the section with no tag is the catch-all, and
+one is prepended if every declared section names a tag -- otherwise an untagged
+row would vanish silently. Each section renders as its own `<table>` with a
+translated `<caption>`, because `Cards.css` makes `tbody` a grid and every `tr`
+a card, so a header row would draw as one more card that looks like a member.
+Leave `sections:` out and the table is a single untitled block.
+
+Three things the queries it replaces could not do: column headers, section
+captions and row names all follow the active language; the portrait resolves
+through `defaultImageIndex` instead of taking whatever `imagen` holds first;
+and a row found only through the membership key is listed at all.
+
+**Placement decides the language**, and nothing forces the table to the end of
+a note:
+
+| Where the fence sits | Who sees it |
+|---|---|
+| above the first `:::lang` marker | every language |
+| inside `:::lang all`, anywhere in the note | every language |
+| inside `:::lang es` | Spanish only, mid-structure if that is where it belongs |
+| below the first marker, outside every block | default language only -- reported |
+
+The last row is the one an author can fall into by accident, so it is named in
+the build report. Unlike `i18n-infobox`, an unwrapped `i18n-query` is *not*
+forced to be shared: a table may legitimately differ per language, and
+overriding the placement would remove the control that placement is for.
+
+The markup comes from `grouping.render_table`, the same function
+`dataview_queries` uses, so a note switching over changes what it says and
+never how it looks. `dataview_queries` stays enabled: the chapter list on
+`tomo` notes keeps using it for now.
+
 ## Theme extraction
 
 `extract_theme.py` is a separate deterministic script, not a pipeline module --

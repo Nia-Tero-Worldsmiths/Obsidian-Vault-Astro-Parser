@@ -445,3 +445,30 @@ html[data-lang="ALL"] .lang-title:first-child {
 .ml-infobox-gallery-panel[hidden] {
   display: none;
 }
+
+/* ---------------------------------------------------------------------------
+ * Query table section labels
+ *
+ * `i18n_query` splits a table into sections, each its own <table> with a
+ * <caption>. A caption rather than a header row because `Cards.css` makes
+ * `tbody` a grid and every `tr` a bordered card -- a header row would draw as
+ * one more card that looks like a member.
+ *
+ * Deliberately paired with the identical rule in the plugin's `styles.css`:
+ * the two readers must show the same thing, and the plugin's stylesheet is not
+ * read by `extract_theme.py`, so the duplication is the only way to keep them
+ * in step. Parity beats removing the repetition.
+ *
+ * A caption defaults to centred body text, which reads as prose rather than as
+ * a label introducing the grid below it.
+ * ------------------------------------------------------------------------ */
+.table-view-caption {
+  /* `caption-side` is explicit because a caption defaults to the top only by
+     convention, and some resets move it. */
+  caption-side: top;
+  margin: 1.1em 0 0.45em;
+  font-weight: 600;
+  text-align: left;
+  font-size: 0.85rem;
+  color: var(--text-muted, #6b6862);
+}

@@ -55,7 +55,7 @@ class I18nSettings:
     default: str = "es"
     languages: tuple[Language, ...] = ()
     #: Vault-relative path of the shared infobox translation table.
-    infobox_table: str = "z_Templates/i18n-infobox.yaml"
+    infobox_table: str = "z_Templates/i18n-manager.yaml"
     #: Codes the vault authors in but the site does not serve yet.
     ignore: tuple[str, ...] = ()
 
@@ -317,7 +317,7 @@ def _parse_i18n(raw: object) -> I18nSettings:
         languages=tuple(languages),
         ignore=ignore,
         infobox_table=str(
-            raw.get("infobox_table", "z_Templates/i18n-infobox.yaml")
+            raw.get("infobox_table", "z_Templates/i18n-manager.yaml")
         ).replace("\\", "/").strip("/"),
     )
 

@@ -14,6 +14,9 @@ defaultImageIndex: 1
 imageLabel:
   - Retrato
   - Forma alterna (etiqueta larga a propósito)
+# Membership without a tag -- the case a tag query cannot see. The group box
+# finds this note because `organizacion` names the guild.
+organizacion: "[[Gremio de Ejemplo]]"
 especie: Humano
 edad: "34"
 titulos:

@@ -141,18 +141,21 @@ class InfoboxTable:
     labels: dict[str, dict[str, Any]] = field(default_factory=dict)
     values: dict[str, dict[str, dict[str, str]]] = field(default_factory=dict)
     layouts: dict[str, dict[str, Any]] = field(default_factory=dict)
+    #: `groups:` -- the query-table layouts, keyed by NoteType like `layouts`.
+    #: Optional: a vault that uses no query table simply leaves it out. Each
+    #: entry owns its own membership rule, sort and sections, so two uses of
+    #: the fence share no settings and cannot constrain each other.
+    groups: dict[str, Any] = field(default_factory=dict)
     available: bool = False
     error: str = ""
 
     def layout_for(self, note_type: Any) -> dict[str, Any] | None:
         """Look up a layout, tolerating case and accent differences."""
-        wanted = normalize_type_key(note_type)
-        if not wanted:
-            return None
-        for key, layout in self.layouts.items():
-            if normalize_type_key(key) == wanted:
-                return layout if isinstance(layout, dict) else None
-        return None
+        return _by_type(self.layouts, note_type)
+
+    def group_for(self, note_type: Any) -> dict[str, Any] | None:
+        """The group-box layout for a NoteType, if the table declares one."""
+        return _by_type(self.groups, note_type)
 
 
 def suppressed(layout: dict[str, Any] | None) -> bool:
@@ -229,8 +232,22 @@ def load_table(config: Config) -> InfoboxTable:
         labels=_mapping(raw.get("labels")),
         values=_mapping(raw.get("values")),
         layouts=layouts,
+        # Optional, unlike `layouts`: a table that declares no group box is a
+        # table for a vault that does not use one, not a broken table.
+        groups=_mapping(raw.get("groups")),
         available=True,
     )
+
+
+def _by_type(source: dict[str, Any], note_type: Any) -> dict[str, Any] | None:
+    """Look up a per-NoteType entry, tolerating case and accent differences."""
+    wanted = normalize_type_key(note_type)
+    if not wanted:
+        return None
+    for key, entry in source.items():
+        if normalize_type_key(key) == wanted:
+            return entry if isinstance(entry, dict) else None
+    return None
 
 
 def _mapping(value: Any) -> dict:

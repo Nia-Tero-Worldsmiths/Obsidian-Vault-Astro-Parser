@@ -292,6 +292,22 @@ def _closing_infobox(lines: list[str], index: int) -> bool:
     return tracker.info == INFOBOX_FENCE
 
 
+def default_only_lines(source: str, blocks: list[LangBlock]) -> set[int]:
+    """Zero-based lines that render for the default language only.
+
+    The one classification an author can fall into by accident: content below
+    the first marker but outside every block looks shared in the editor and is
+    not. Exposed as its own function so a caller can report it without
+    reaching into `_Kind`, which stays private so that a `:::lang drop` block
+    can never collide with a sentinel.
+    """
+    return {
+        index
+        for index, (kind, _) in enumerate(classify_lines(source, blocks))
+        if kind is _Kind.DEFAULT_ONLY
+    }
+
+
 def body_for(source: str, classes: list[LineClass], lang: str, default: str) -> str:
     """The body one language should see."""
     lines = source.split("\n")

@@ -37,6 +37,17 @@ labels:
   subclase: { es: "└> Subclase", ja: "└> サブクラス", en: "└> Subclass" }
   titulos: { es: "Títulos", ja: "称号", en: "Titles" }
 
+  # Column headers for the group box. They are ordinary labels, which is the
+  # point: the ```dataview tables these replace hard-coded "Portrait" and
+  # "Nombre" into the query, so a `ja` reader saw them in the wrong language.
+  retrato: { es: "Retrato", ja: "肖像", en: "Portrait" }
+  nombre: { es: "Nombre", ja: "名前", en: "Name" }
+
+  # Section captions for a query table. Ordinary labels, translated the same
+  # way, so a section heading is never hard-coded into a query.
+  miembros: { es: "Miembros", ja: "団員", en: "Members" }
+  secundarios: { es: "Secundarios", ja: "準団員", en: "Secondary" }
+
 # A superscript marker beside the title rather than a row of its own. Obsidian
 # has no enum property type, so the closed set lives here and the only
 # enforcement is visual.
@@ -102,3 +113,49 @@ layouts:
   # reported, rather than drawn as a warning on the page.
   prosa: { infobox: false }
   tomo: { infobox: false }
+
+# Query tables: the ```i18n-query fence, keyed by NoteType exactly as
+# `layouts` is, so a note that declares an empty fence gets the right table
+# from its own frontmatter.
+#
+# Everything that differs between one use and another lives here, never in the
+# module: what counts as membership, how rows sort, and how they split into
+# sections. That is why a roster and a chapter list are one component.
+groups:
+  organizacion:
+    # The one axis two uses genuinely differ on. A row belongs when it carries
+    # a tag folding to the term, OR when `organizacion` names the subject --
+    # which is how a member with no tags at all is still found.
+    #
+    # Both spellings below fold to `gremiodeejemplo`, which is the whole reason
+    # one written term is enough:
+    #
+    #     tags: [gremioDeEjemplo]      organizacion: "[[Gremio de Ejemplo]]"
+    members: { tag: true, field: organizacion }
+
+    columns:
+      # `kind: image` resolves ONE picture per row through `defaultImageIndex`,
+      # rather than rendering everything in `imagen`.
+      - { kind: image, key: imagen, size: "500x500", label: retrato }
+      # `kind: link` follows the site-wide publish rule: a published note
+      # links, an unpublished one renders as plain text.
+      - { kind: link, label: nombre }
+
+    sort: { by: title }
+
+    # Sections, in page order. A row lands in the FIRST section whose tag it
+    # carries; the one with no tag is the catch-all. Leave `sections:` out
+    # entirely and the table is a single untitled block, which is what every
+    # layout did before this existed.
+    sections:
+      - { label: miembros }
+      - { label: secundarios, tag: secundario }
+
+  # Not used by this example vault, and here to show the shape: a chapter list
+  # is the same component with a different membership key and sort. Nothing in
+  # the module knows which is which.
+  #
+  # tomo:
+  #   members: { tag: false, field: padre }
+  #   columns: [{ kind: link, label: lista_capitulos }]
+  #   sort: { by: file.name, numeric: true }

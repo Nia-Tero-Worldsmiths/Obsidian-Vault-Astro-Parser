@@ -26,10 +26,10 @@ from __future__ import annotations
 import html
 import re
 
-from .. import dataview, infobox as ib, linking
+from .. import dataview, grouping, linking
 from ..dataview import Column, Query, UnsupportedQuery
-from ..model import Note, VaultContext, index_key
-from ..slugs import natural_key
+from ..grouping import NULL_TEXT
+from ..model import Note, VaultContext
 from .base import TransformModule
 
 _FENCE = re.compile(
@@ -38,8 +38,6 @@ _FENCE = re.compile(
     r"^(?P=indent)(?P=fence)[ \t]*$",
     re.DOTALL | re.MULTILINE | re.IGNORECASE,
 )
-
-NULL_TEXT = r"\-"
 
 
 class DataviewQueriesModule(TransformModule):
@@ -78,17 +76,19 @@ class DataviewQueriesModule(TransformModule):
         candidates = [other for other in ctx.notes if other is not note]
 
         if query.tags is not None:
-            candidates = [n for n in candidates if _matches_tags(n, query.tags)]
+            candidates = [n for n in candidates if grouping.matches_tags(n, query.tags)]
         if query.where is not None:
-            candidates = [n for n in candidates if _matches_where(n, query.where, note, ctx)]
+            candidates = [
+                n for n in candidates if grouping.matches_where(n, query.where, note, ctx)
+            ]
 
         if query.sort is not None:
             candidates.sort(
-                key=lambda n: _sort_key(n, query.sort),
+                key=lambda n: grouping.sort_key(n, query.sort),
                 reverse=query.sort.descending,
             )
         else:
-            candidates.sort(key=lambda n: natural_key(n.title.casefold()))
+            candidates.sort(key=grouping.title_sort_key)
 
         return candidates
 
@@ -115,23 +115,12 @@ class DataviewQueriesModule(TransformModule):
         if not query.without_id:
             columns.insert(0, Column("file_link", None, "File"))
 
-        headers = "".join(
-            f'<th class="table-view-th">{html.escape(column.header)}</th>'
-            for column in columns
-        )
-        body_rows = "".join(
-            "<tr>"
-            + "".join(
-                f"<td>{self._render_cell(column, note, ctx)}</td>" for column in columns
-            )
-            + "</tr>"
-            for note in rows
-        )
-        return (
-            '<table class="dataview table-view-table">'
-            f'<thead class="table-view-thead"><tr class="table-view-tr-header">{headers}</tr></thead>'
-            f'<tbody class="table-view-tbody">{body_rows}</tbody>'
-            "</table>"
+        return grouping.render_table(
+            [column.header for column in columns],
+            [
+                [self._render_cell(column, note, ctx) for column in columns]
+                for note in rows
+            ],
         )
 
     def _render_cell(self, column: Column, note: Note, ctx: VaultContext) -> str:
@@ -164,133 +153,6 @@ class DataviewQueriesModule(TransformModule):
         ctx: VaultContext,
         size: tuple[int, int | None] | None = None,
     ) -> str:
-        # A gallery note holds a list here; a roster row wants one portrait,
-        # and which one is the note's decision -- `defaultImageIndex`.
-        target = ib.default_image_ref(note.frontmatter, field)
-        if not target:
-            # A roster row for someone with no portrait. The stand-in is keyed
-            # on the *subject's* NoteType, not the page the table sits on --
-            # this is a list of people whichever note is showing it.
-            target = ctx.config.fallback_images.get(
-                ib.normalize_type_key(note.frontmatter.get("NoteType"))
-            )
-            if not target:
-                self.count("portrait missing")
-                return ""
-            self.count("portraits filled from fallback_images")
-        refs = linking.parse_refs(target)
-        if refs:
-            target = refs[0].target
-
-        resolved = linking.resolve_image(target, ctx)
-        if resolved is None:
-            self.count("portrait unresolved")
-            self.warn(f"{note.vault_path}: image not found for `{field}`: {target}")
-            return ""
-
-        url, asset = resolved
-        if asset is not None:
-            # Always copied, even for an unpublished note -- see the module
-            # docstring. An icon needs no such record -- it is never copied.
-            ctx.referenced_assets.add(asset.vault_path)
-        self.count("portraits rendered")
-
-        # `embed(link(imagen, "500x500"))` -- Obsidian reads an embed's display
-        # text as dimensions, exactly as `![[img.jpg|500x500]]` does, and emits
-        # them as width/height *attributes*. That matters: attributes are
-        # presentational hints, so Cards.css can still override the width to
-        # fill its grid column while the height keeps every card aligned.
-        # Inline styles would win over Cards.css and break that.
-        # The height goes in an inline style, not just the attribute: with
-        # Cards.css setting `width: 100%`, the browser sizes the image from its
-        # natural ratio and the height attribute never takes effect. Only the
-        # *height* is inlined -- inlining the width too would beat Cards.css and
-        # stop the card filling its grid column. Cards.css then caps it via
-        # `max-height: var(--cards-image-height)`, which is what produces the
-        # uniform 400px card images Obsidian shows.
-        dimensions = ""
-        if size is not None:
-            width, height = size
-            dimensions = f' width="{width}"'
-            if height is not None:
-                dimensions += f' height="{height}" style="height: {height}px"'
-            self.count("portraits sized")
-
-        return (
-            f'<img src="{html.escape(url)}" alt="{html.escape(note.title)}"'
-            f"{dimensions} />"
+        return grouping.render_portrait(
+            field, note, ctx, size, count=self.count, warn=self.warn
         )
-
-
-# -- predicates -----------------------------------------------------------
-
-
-def _matches_tags(note: Note, tags: dataview.TagFilter) -> bool:
-    if not tags.terms:
-        return False
-
-    present = {tag.casefold() for tag in note.tags}
-    results = [
-        (tag.casefold() not in present) if negated else (tag.casefold() in present)
-        for negated, tag in tags.terms
-    ]
-    return any(results) if tags.operator == "OR" else all(results)
-
-
-def _matches_where(
-    note: Note, condition: dataview.Condition, current: Note, ctx: VaultContext
-) -> bool:
-    value = note.frontmatter.get(condition.field)
-
-    if condition.kind == "truthy":
-        return bool(value) and value not in ("", [], {})
-
-    # `field = this.file.link`. Resolving both sides to notes and comparing
-    # identity, rather than comparing strings: the link text is a *filename*
-    # while the note may carry a different `title`, and aliases and full-path
-    # links have to match too.
-    for candidate in value if isinstance(value, list) else [value]:
-        if not isinstance(candidate, str):
-            continue
-        for ref in linking.parse_refs(candidate):
-            if ctx.find_note(ref.target) is current:
-                return True
-        if index_key(candidate) == index_key(current.vault_path.rsplit("/", 1)[-1]):
-            return True
-    return False
-
-
-# For `SORT number(field)`: dataview's own NUMBER_REGEX, which is unanchored,
-# so it picks up the first number anywhere in the value.
-_DIGITS = re.compile(r"(-?\d+(?:\.\d+)?)")
-
-
-def _field_value(note: Note, field_name: str) -> str:
-    """Resolve a sortable field, including dataview's `file.*` pseudo-fields."""
-    if field_name in ("file.name", "file.link"):
-        # The *filename*, which is not the title -- a note can override one
-        # without the other, and `file.name` means the file.
-        return note.vault_path.rsplit("/", 1)[-1].removesuffix(".md")
-    if field_name == "file.path":
-        return note.vault_path
-    if field_name == "title":
-        return note.title
-    value = note.frontmatter.get(field_name)
-    if value is None:
-        return ""
-    if isinstance(value, list):
-        value = value[0] if value else ""
-    return str(value)
-
-
-def _sort_key(note: Note, sort: dataview.SortKey) -> tuple:
-    raw = _field_value(note, sort.field)
-
-    if sort.numeric:
-        match = _DIGITS.search(raw)
-        # Nulls last, matching dataview's own ordering for missing values.
-        return (0, float(match.group(1))) if match else (1, float("inf"))
-
-    if not raw:
-        return (1, ())
-    return (0, natural_key(raw.casefold()))

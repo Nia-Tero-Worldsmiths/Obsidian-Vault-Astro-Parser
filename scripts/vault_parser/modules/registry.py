@@ -40,6 +40,7 @@ from .empty_headings import EmptyHeadingsModule
 from .image_licensing import ImageLicensingModule
 from .graph import GraphModule
 from .i18n_infobox import I18nInfoboxModule
+from .i18n_query import I18nQueryModule
 from .lang_blocks import LangBlocksModule
 
 _MODULE_CLASSES: tuple[type[TransformModule], ...] = (
@@ -50,6 +51,7 @@ _MODULE_CLASSES: tuple[type[TransformModule], ...] = (
     CalloutsModule,
     CleanupModule,
     DataviewQueriesModule,
+    I18nQueryModule,
     I18nInfoboxModule,
     NavTreeModule,
     ZoommapModule,
