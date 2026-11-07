@@ -120,6 +120,40 @@ rather than reflowing. Never started — there is no trace of it in `scripts/`,
 parser's `grouping.py` and the plugin's `src/query/` — or Obsidian and the site
 will disagree.
 
+There is now a worked precedent: `galleryColumns` does exactly this for the
+`i18n-gallery` fence, as an inline `--ml-gallery-columns` rather than a class,
+because the count is a number the table may name freely and a stylesheet cannot
+enumerate. A query table would want `cards-cols-N` instead, since `Cards.css`
+already defines 1 through 8 — the reason this was deferred rather than built is
+that the default `repeat(auto-fit, …)` already reflows sensibly.
+
+### Fill in `gallery:` on the character notes
+
+The `i18n-gallery` fence is built and works in both readers, but no note uses
+it yet, so nothing renders. For each character with art outside their infobox:
+
+```yaml
+gallery:
+  - 250408 Brunhilda.webp
+  - 251001 Brunhilda.webp
+galleryLabel:
+  - Boceto
+  - Ropa de calle
+```
+
+then a ```` ```i18n-gallery ```` fence wherever the section belongs — above the
+first `:::lang` marker if it should show in every language.
+
+The ten images currently in no note at all are the obvious first candidates:
+two more of Brunhilda, two of Diana, one of Isolde, plus Samune, Valeriana,
+Ölbaum, Miria and Kenorland. They already appear on `/galeria`, which is how
+you can see what is waiting.
+
+Both keys and the layout entry are in place; `layouts.persona` in
+`z_Templates/i18n-manager.yaml` declares `gallery: gallery` and
+`galleryColumns: 3`. Other NoteTypes need the same two lines before their
+notes can carry a gallery.
+
 ### Chapter lists in `tomo` notes, through `i18n-query`
 
 Scoped and closed as "no code change needed": both the parser and the plugin
@@ -152,42 +186,3 @@ agree without any further work.
   published, so today it is noise in the report and nothing more.
 
 ---
-
-## Plugin repository
-
-### `minAppVersion` understates the real floor by two minor versions
-
-`manifest.json` says `1.4.0`. The actual floor, read from the `@since` tags in
-the installed typings (`obsidian` 1.13.1):
-
-| API | Used in | Added in |
-|---|---|---|
-| `AbstractInputSuggest` | `src/settings.ts` — the folder picker | **1.4.10** |
-| `Vault.getAllFolders()` | `src/settings.ts` — populating it | **1.6.6** |
-| `FileManager.trashFile()` | `src/normalize/run.ts` | **1.6.6** |
-| `Vault.getFileByPath()` | several | 1.5.7 |
-
-So the floor is **1.6.6**. Everything else the plugin touches predates 1.4.0.
-
-The failure is not graceful. `settings.ts` evaluates
-`class FolderSuggest extends AbstractInputSuggest<TFolder>` at module scope, and
-`extends undefined` throws while the bundle is being evaluated — so on an
-Obsidian between 1.4.0 and 1.4.9 the *entire plugin* fails to load, not just the
-folder picker. Between 1.4.10 and 1.6.5 it loads and then fails at runtime the
-first time the settings tab or the normalise pass reaches for the two 1.6.6
-methods.
-
-Nobody is affected today: this machine runs Obsidian 1.15.0, and the plugin is
-installed by building straight into `.obsidian/plugins/` rather than through
-the community store, so no version negotiation happens at all.
-
-**What it takes:** set `minAppVersion` to `1.6.6` in `manifest.json` and
-`{"0.1.0": "1.6.6"}` in `versions.json`. That is a two-line change and it only
-writes down what is already true — it does not drop support for anything that
-currently works.
-
-The alternative, if supporting older Obsidian ever matters, is to feature-detect
-instead: guard the folder picker behind a check for `AbstractInputSuggest` and
-fall back to a plain text field, and replace `getAllFolders()` and
-`trashFile()` with their older equivalents. That is real work for a benefit
-nobody here needs, which is why bumping the number is the recommendation.
