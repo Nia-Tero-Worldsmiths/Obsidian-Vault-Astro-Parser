@@ -54,6 +54,7 @@
   }
 
   let dialog: HTMLDialogElement | null = null;
+  let stage: HTMLElement;
   let frame: HTMLImageElement;
   let legend: HTMLElement;
 
@@ -71,24 +72,78 @@
     close.textContent = "×";
     close.addEventListener("click", () => dialog?.close());
 
+    // The picture's own scroll container. It exists for the zoomed state: at
+    // natural size the picture is larger than the screen, and this is what
+    // pans it. Centring is `margin: auto` on the image rather than
+    // `place-items` on the box, because a centred flex or grid item that
+    // overflows gets its top and left edges clipped away with no way to
+    // scroll back to them.
+    stage = document.createElement("div");
+    stage.className = "lightbox-stage";
+
     frame = document.createElement("img");
     frame.className = "lightbox-image";
+    frame.addEventListener("click", (event) => toggleZoom(event));
 
     legend = document.createElement("p");
     legend.className = "lightbox-caption";
 
-    dialog.append(close, frame, legend);
+    stage.append(frame);
+    dialog.append(close, stage, legend);
 
-    // The dialog fills the viewport and is transparent, so every empty pixel
-    // around the picture is part of it — and a click that lands on the dialog
-    // itself, rather than on the picture or the button, is a click outside.
-    // `::backdrop` clicks arrive here too.
+    // Every empty pixel around the picture closes. Two listeners because the
+    // stage covers most of that space and the dialog the rest; `::backdrop`
+    // clicks arrive on the dialog.
     dialog.addEventListener("click", (event) => {
       if (event.target === dialog) dialog.close();
+    });
+    stage.addEventListener("click", (event) => {
+      if (event.target === stage) dialog?.close();
     });
 
     document.body.append(dialog);
     return dialog;
+  }
+
+  /** Whether showing this picture at natural size would reveal anything. */
+  function canZoom(): boolean {
+    if (!frame.naturalWidth) return false;
+    // Compared against the rendered box rather than the viewport: the cap is
+    // whichever of width or height bit first, and a picture already shown
+    // whole has nothing further to show.
+    return (
+      frame.naturalWidth > frame.clientWidth + 1 ||
+      frame.naturalHeight > frame.clientHeight + 1
+    );
+  }
+
+  /**
+   * Fit to the screen, or natural size with the stage panning it.
+   *
+   * Two states rather than a zoom factor: the question a reader has is "let
+   * me see this properly", and 1:1 is the answer to it. Anything finer wants
+   * wheel and drag handling, which is a different feature.
+   */
+  function toggleZoom(event?: MouseEvent): void {
+    const zoomed = stage.classList.contains("is-zoomed");
+
+    if (zoomed) {
+      stage.classList.remove("is-zoomed");
+      return;
+    }
+    if (!canZoom()) return;
+
+    // Where in the picture the reader clicked, before the size changes.
+    const box = frame.getBoundingClientRect();
+    const atX = event ? (event.clientX - box.left) / box.width : 0.5;
+    const atY = event ? (event.clientY - box.top) / box.height : 0.5;
+
+    stage.classList.add("is-zoomed");
+
+    // Put the point they clicked in the middle, so zooming lands on the
+    // detail they were pointing at rather than on the top-left corner.
+    stage.scrollLeft = atX * stage.scrollWidth - stage.clientWidth / 2;
+    stage.scrollTop = atY * stage.scrollHeight - stage.clientHeight / 2;
   }
 
   function open(img: HTMLImageElement): void {
@@ -100,6 +155,19 @@
     legend.textContent = text;
     legend.hidden = text.length === 0;
     box.setAttribute("aria-label", text || "Imagen");
+
+    // Each picture opens fitted, whatever the last one was left at.
+    stage.classList.remove("is-zoomed");
+    stage.scrollTo(0, 0);
+
+    // Whether this one is worth enlarging is only knowable once it has laid
+    // out, and `is-zoomable` is what puts the magnifier cursor on it. The
+    // picture is already on the page and so already decoded, but `complete`
+    // guards the case where it is not.
+    const mark = () => frame.classList.toggle("is-zoomable", canZoom());
+    frame.classList.remove("is-zoomable");
+    if (frame.complete) requestAnimationFrame(mark);
+    else frame.addEventListener("load", () => requestAnimationFrame(mark), { once: true });
 
     // Escape, the focus trap and `inert` on the rest of the page all come
     // with `showModal`. The scroll lock is CSS keyed off `[open]`, so there

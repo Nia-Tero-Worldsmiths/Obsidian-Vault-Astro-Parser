@@ -27,7 +27,6 @@
 .lightbox[open] {
   display: grid;
   grid-template-rows: 1fr auto;
-  place-items: center;
 }
 
 .lightbox {
@@ -46,18 +45,49 @@
   background: rgb(0 0 0 / 82%);
 }
 
-/* The picture at its own size, capped to the viewport. Nothing is upscaled:
- * the site serves originals, so "full size" already means the file as the
- * vault holds it. */
+/* The picture's scroll container, which is what pans it once zoomed.
+ *
+ * `min-height: 0` is load-bearing: a grid item's default `min-height: auto`
+ * refuses to shrink below its content, so without it the stage would grow to
+ * the zoomed image's full height and push the caption off screen instead of
+ * scrolling. */
+.lightbox-stage {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  padding: 1rem;
+  overflow: auto;
+}
+
+/* The picture, fitted. Nothing is upscaled: the site serves originals, so
+ * "full size" already means the file as the vault holds it.
+ *
+ * `margin: auto` rather than centring from the stage. A centred flex or grid
+ * item that overflows its container has its top and left edges clipped with
+ * no way to scroll back to them — which is exactly the state zooming puts
+ * this in. */
 .lightbox-image {
-  max-width: 92vw;
-  max-height: 80dvh;
+  margin: auto;
+  max-width: 100%;
+  /* Viewport units, not `100%`. The stage is a stretched grid item, so its
+   * own height is `auto` and a percentage max-height against it does not
+   * resolve — the picture then renders at full natural height and the
+   * "fitted" state fits nothing. The value leaves room for the caption row
+   * and the stage's padding. */
+  max-height: 78dvh;
   width: auto;
   height: auto;
   object-fit: contain;
   border-radius: var(--radius-s, 4px);
   /* Against a dark backdrop a transparent PNG would otherwise dissolve. */
   background: var(--background-primary, #fff);
+}
+
+/* Natural size. `max-width: none` is what lets it exceed the stage, and the
+ * stage's `overflow: auto` is what then pans it. */
+.lightbox-stage.is-zoomed .lightbox-image {
+  max-width: none;
+  max-height: none;
   cursor: zoom-out;
 }
 

@@ -417,6 +417,21 @@ Images get `tabindex` and `role="button"` so the modal is reachable without a
 mouse. That is a real cost on `/galeria`, where it adds 43 tab stops, and the
 alternative was a feature only mouse users could reach.
 
+**Clicking the open picture toggles it to natural size**, and the stage around
+it scrolls to pan. Two states rather than a zoom factor: the question is "let
+me see this properly" and 1:1 answers it, where anything finer wants wheel and
+drag handling. The toggle is offered only when the picture is actually being
+downscaled -- a 451x508 drawing already shows whole, so it gets no magnifier
+cursor -- and zooming centres on the point that was clicked, so it lands on the
+detail the reader was pointing at rather than on the top-left corner.
+
+The picture is centred with `margin: auto` rather than from the stage: a
+centred flex or grid item that overflows has its top and left edges clipped
+with no way to scroll back to them, which is exactly the state zooming puts it
+in. The fitted cap is in `dvh`, not `100%`, because the stage is a stretched
+grid item whose own height is `auto` -- a percentage against it does not
+resolve, and the "fitted" state then fits nothing.
+
 ### Which image stands for a note
 
 `defaultImageIndex` is zero-based and answers one question asked in two
