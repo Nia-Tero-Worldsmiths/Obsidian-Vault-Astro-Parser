@@ -722,6 +722,21 @@ short drawing is centred in its card instead of hanging from the top. A
 `max-height` keeps one very tall picture from setting the height of every card
 beside it.
 
+The picture sits in a `.ml-gallery-frame` box that both readers emit, and that
+box is there for Obsidian. The plugin renders an `![[file]]` embed through
+`MarkdownRenderer`, which wraps the `<img>` in elements of Obsidian's own
+making -- sometimes a `span`, and for an embed alone on its line a `p` around
+that -- so a rule written for the picture lands on a wrapper instead and does
+nothing. That is why the captions lined up here and not in the reader.
+
+`.ml-gallery-frame *:not(img) { display: contents }` collapses those wrappers
+so the picture becomes a flex child of the frame, which is what it already is
+on this side. Written against "anything that is not the picture" rather than
+against `.internal-embed`: those class names are not part of any API. A
+descendant selector, not a child one -- matching only the outer wrapper leaves
+the inner one a block, which puts a short picture at the top of its card
+instead of the middle. On this side the selector matches nothing.
+
 The grid's CSS is written twice, in `src/styles/site-overrides.css` here and in
 the plugin's `styles.css`, under the same class names. That is the standing
 rule: parity between the two readers beats one copy of a declaration.

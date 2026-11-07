@@ -214,7 +214,20 @@ class I18nGalleryModule(TransformModule):
             if image.label
             else ""
         )
-        return f'<figure class="ml-gallery-item">{tag}{caption}</figure>'
+        # The picture gets a box of its own rather than sitting directly in the
+        # figure. Here that box is redundant; in Obsidian it is the whole
+        # point. The plugin renders an `![[file]]` embed through
+        # `MarkdownRenderer`, which wraps the `<img>` in elements of
+        # Obsidian's own making -- so the figure's flex child is that wrapper,
+        # not the picture, and every rule written for the picture lands on the
+        # wrong element. A box both readers emit is the one hook that can be
+        # styled identically, which is what keeps the captions on one line
+        # there as well as here.
+        return (
+            '<figure class="ml-gallery-item">'
+            f'<div class="ml-gallery-frame">{tag}</div>'
+            f"{caption}</figure>"
+        )
 
     # -- audits ----------------------------------------------------------
 

@@ -583,6 +583,38 @@ html[data-lang="ALL"] .lang-title:first-child {
   overflow: hidden;
 }
 
+
+/* The picture's own box, emitted by both readers.
+ *
+ * It exists because of Obsidian. There the plugin renders an `![[file]]`
+ * embed through `MarkdownRenderer`, which wraps the `<img>` in elements of
+ * Obsidian's own making -- so `flex: 1` written for the picture landed on
+ * that wrapper's child instead and did nothing, which is why the captions
+ * lined up on the site and not in the reader.
+ *
+ * `display: contents` on the wrappers is the fix, and it is deliberately
+ * written against "anything that is not the picture" rather than Obsidian's
+ * classes: those are not part of any API and the markup around an embed has
+ * changed before. It is also a descendant selector, not a child one -- an
+ * embed alone on its line comes wrapped in a paragraph as well, and matching
+ * only the outer wrapper left the inner one a block, which put a short
+ * picture at the top of its card instead of the middle.
+ *
+ * The rule removes those boxes and promotes the picture to a flex child of
+ * the frame, which is what it already is on the site -- so the single set of
+ * rules below describes both readers. On the site the selector matches
+ * nothing.
+ */
+.ml-gallery-frame {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.ml-gallery-frame *:not(img) {
+  display: contents;
+}
+
 /* `flex: 1` claims the space above the caption and `object-fit: contain`
  * centres the picture in it, so a short drawing sits in the middle of its
  * card rather than hanging from the top with a gap beneath it.
@@ -592,7 +624,7 @@ html[data-lang="ALL"] .lang-title:first-child {
  * before the image loads; the grid decides the actual width. `max-height`
  * stops one very tall drawing from setting the height of every card beside
  * it. */
-.ml-gallery-item img {
+.ml-gallery-frame img {
   display: block;
   flex: 1;
   width: 100%;

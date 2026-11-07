@@ -240,7 +240,9 @@ class Markup(unittest.TestCase):
         self.assertEqual(
             got,
             '<figure class="ml-gallery-item">'
+            '<div class="ml-gallery-frame">'
             '<img src="/vault-assets/b.webp" alt="Boceto" />'
+            "</div>"
             '<figcaption class="ml-gallery-caption">Boceto</figcaption>'
             "</figure>",
         )
@@ -258,6 +260,14 @@ class Markup(unittest.TestCase):
         )
         self.assertIn("A &amp; &lt;B&gt;", got)
         self.assertNotIn("<B>", got)
+
+    def test_the_picture_sits_in_a_frame_both_readers_emit(self):
+        # Obsidian wraps an embed in elements of its own, so the figure's flex
+        # child there is that wrapper rather than the picture. A box both
+        # readers emit is the one hook a single rule can target.
+        got = self.module._figure(note(), _Ctx(), ib.GalleryImage("b.webp"), "A")
+        self.assertIn('<div class="ml-gallery-frame">', got)
+        self.assertLess(got.index("ml-gallery-frame"), got.index("<img"))
 
     def test_an_unresolved_image_contributes_nothing(self):
         got = self.module._figure(note(), _Ctx(resolve=False), ib.GalleryImage("x.webp"), "A")
