@@ -20,6 +20,26 @@
  * after it are ITS's own non-wotc default, so a failed webfont load lands
  * somewhere the theme already endorses.
  *
+ * Noto Sans JP follows it because Inter has no Japanese and this site serves
+ * Japanese. Two families in one stack is what makes the split work: each
+ * `@font-face` declares the `unicode-range` it covers, the ranges do not
+ * overlap, and the browser downloads only the face a rendered character
+ * actually needs -- so a reader of Spanish never fetches the Japanese file,
+ * and a reader of Japanese gets kanji from Noto and Latin from Inter inside
+ * the same sentence. The theme's own stack ended with "Microsoft YaHei Light"
+ * for exactly this gap; naming the face we ship replaces a guess about what
+ * the reader has installed with something we serve.
+ *
+ * `--font` and `--font-monospace` need the same treatment and had been left
+ * out, because until there was a Japanese face to reach for the omission made
+ * no difference: under `wotc-beyond` the theme ends all three stacks at a bare
+ * `Inter`, which is the right answer for every script Inter covers. It is the
+ * wrong answer for Japanese, and `--font` is what sets every heading, dataview
+ * column header and statblock title, so a Japanese note's headings were
+ * landing on the browser's last-resort font while its prose was correct.
+ * Writing them as the theme's display faces followed by `var(--font-default)`
+ * keeps the one stack that matters in one place.
+ *
  * `--link-color`: contrast deviation. #df6262 measures 3.31:1 on the cream
  * background, and this vault's prose is link-dense. #d63636 is the smallest
  * darkening that clears 4.5:1, computed by lowering lightness in HLS while
@@ -28,8 +48,18 @@
 .theme-light,
 .theme-light.wotc-beyond,
 .theme-light .wotc-beyond {
-  --font-default: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI",
-    Roboto, Helvetica, Arial, sans-serif;
+  --font-default: "Inter", "Noto Sans JP", -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font: "its-Draconis", "Draconis", var(--font-default);
+  /* `Noto Sans JP` sits *before* the generic, because `monospace` matches
+   * everything and nothing after it is ever consulted. Latin still reaches the
+   * generic: the Japanese face's `unicode-range` does not claim Latin, so it is
+   * skipped for those characters rather than preferred. Noto Sans JP is not a
+   * monospaced font, but CJK glyphs are full-width to begin with, so a column
+   * of Japanese in a code block or table still lines up. */
+  --font-monospace: "its-Fira Code", "Fira Code", "Fira Code Medium",
+    "Source Code Pro", ui-monospace, SFMono-Regular, Menlo, "Noto Sans JP",
+    monospace;
   --link-color: #d63636;
   --link-external-color: #d63636;
 }
@@ -249,7 +279,14 @@ html[data-lang="ALL"] .lang-title:first-child {
   border-radius: 4px;
   background: transparent;
   color: var(--text-muted, #6b6862);
-  font-family: inherit;
+  /* The switcher is visible on every multilingual page, and its Japanese
+   * label would otherwise be the only rendered Japanese on a page somebody is
+   * reading in Spanish -- three characters pulling down the whole 2 MB content
+   * face. `Noto Sans JP UI` holds just those three glyphs, so the label is
+   * always right and the content face stays unrequested until there is
+   * Japanese on screen to set. A label this face does not cover falls through
+   * to `--font-default` and still renders, at the cost of the download. */
+  font-family: "Noto Sans JP UI", var(--font-default);
   font-size: 12px;
   font-weight: 500;
   letter-spacing: 0.01em;

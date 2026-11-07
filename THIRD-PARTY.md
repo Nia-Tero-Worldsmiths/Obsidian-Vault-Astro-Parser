@@ -9,9 +9,9 @@ and has not been reviewed by a lawyer.
 
 ## What this repository actually distributes
 
-Only two third-party things: the Inter font sources under `vendor/fonts/`, and
-the Font Awesome icon paths inlined in `NavTree.astro`. Both are permissive and
-both are noted below.
+Only two kinds of third-party thing: the font sources under `vendor/fonts/`
+-- Inter and Noto Sans JP, both SIL OFL 1.1 -- and the Font Awesome icon paths
+inlined in `NavTree.astro`. All are permissive and all are noted below.
 
 Everything else here is original and MIT. That is a consequence of the
 repository holding the tool rather than any vault's output — the generated
@@ -86,6 +86,26 @@ tracked: the font does not depend on any vault, which is the line this
 repository draws. Subsetting and format conversion do not change the licence.
 The OFL requires the font not be sold on its own and that the reserved name not
 be misused.
+
+### Noto Sans JP — SIL Open Font License 1.1
+
+- Copyright © The Noto Project Authors
+- <https://github.com/notofonts/noto-cjk>
+
+Inter has no Japanese, and a built site serves Japanese, so Noto Sans JP ships
+alongside it on the same terms. `vendor/fonts/NotoSansJP-Variable.woff2` is the
+full font; `scripts/build_fonts.py` cuts two faces from it — the content face
+at `public/fonts/noto-sans-jp-variable.woff2`, holding kana, CJK punctuation
+and the 6,355 kanji of JIS X 0208, and a three-glyph face for the language
+switcher's own label.
+
+The OFL's reserved-name clause is the one to watch when subsetting: the name
+"Noto" is reserved, so a *modified* font may not be distributed under it. A
+subset is the permitted kind of modification — the OFL explicitly allows
+distributing the font bundled and in any format — and the faces here are not
+renamed, re-outlined or re-hinted, only reduced. The embedded licence (name
+IDs 13 and 14) is kept in every face the build emits, so each file states its
+own terms.
 
 ---
 

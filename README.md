@@ -74,7 +74,7 @@ src/
   layouts/ components/ pages/   the Astro site
   styles/                       see below
 examples/example-vault/         a four-note vault to run against
-vendor/fonts/                   Inter sources, subset by build_fonts.py
+vendor/fonts/                   Inter + Noto Sans JP, subset by build_fonts.py
 ```
 
 `scripts/README.md` documents the pipeline in detail: the module system, the
@@ -97,10 +97,10 @@ Order matters, and `src/layouts/BaseLayout.astro` is where it is declared.
 Copyright is held by the **Nia Tero Worldsmiths** — Marioespiro, Emperadoracero
 and Rei-pyo.
 
-Everything in this repository is **MIT** (see `LICENSE`), with two third-party
-exceptions noted in `THIRD-PARTY.md`: the Inter sources under `vendor/fonts/`
-are SIL OFL 1.1, and the navigation icons inlined in `NavTree.astro` are CC BY
-4.0 from Font Awesome Free.
+Everything in this repository is **MIT** (see `LICENSE`), with two kinds of
+third-party exception noted in `THIRD-PARTY.md`: the font sources under
+`vendor/fonts/` — Inter and Noto Sans JP — are SIL OFL 1.1, and the navigation
+icons inlined in `NavTree.astro` are CC BY 4.0 from Font Awesome Free.
 
 The *content* a vault produces is licensed separately and is not distributed
 here. For the Nia Tero site: text under CC BY-SA 4.0, images not licensed at

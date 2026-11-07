@@ -721,15 +721,72 @@ Inter is a *variable* font: one file spans weights 100-900, so upright plus
 italic covers everything, **740 KB -> 250 KB**. It is OFL-licensed and the
 sources live in `vendor/fonts/`.
 
-To ship a different family, add it to `FAMILIES` in `build_fonts.py`, drop its
-sources into `vendor/fonts/`, and select it with `--family`. Output from the
-previous family is pruned automatically.
+### Japanese
 
-The subset ranges are chosen for *this* vault and are worth checking before
+Inter has no Japanese, and `i18n.ignore: [en]` means a built site serves `es`
+and `ja`, so **Noto Sans JP** ships beside it. Until it did, the one language
+whose typography nobody here controlled was the one a reader was most likely to
+see set in an arbitrary face -- Hiragino on a Mac, Yu Gothic on Windows, a
+Chinese font or tofu on a Linux box that has no Japanese installed, which
+renders some kanji with visibly Chinese glyph shapes.
+
+The split is `unicode-range`, which is also why both families sit in the same
+stack rather than one replacing the other. A browser downloads a face only when
+it renders a character that face claims, so a reader of Spanish never fetches a
+byte of Japanese, and a reader of Japanese gets kanji from Noto and Latin from
+Inter inside one sentence.
+
+Three faces come out of it:
+
+| Face | Holds | Size |
+|---|---|---|
+| `noto-sans-jp-variable.woff2` | kana, CJK punctuation, the 6,355 kanji of JIS X 0208 | 2.0 MB |
+| `noto-sans-jp-ui.woff2` | the three characters of the language switcher's label | 1.5 KB |
+
+The kanji repertoire is a choice, and `jis_x0208_kanji()` explains it: the
+Unified Ideographs block holds 20,992 characters, JIS X 0208 is the 6,355 that
+"written Japanese" has meant since 1978, and Python's `shift_jis` codec maps
+precisely that set -- so membership is a test rather than a list to maintain.
+Level 1 alone (2,965 kanji) would cost half as much and covers everything
+currently in the vault, but it misses name kanji, and a character's own name
+set in a different font from the sentence around it is the one failure a reader
+cannot miss.
+
+The switcher's label gets its own face because it renders on every multilingual
+page whether or not the reader has switched: served from the content face,
+three characters in a button would pull 2 MB down for somebody reading Spanish.
+
+If the Japanese file ever becomes a problem, the escalation is what Google
+Fonts does -- slice the kanji across many `unicode-range` blocks so a page
+fetches only the slices it touches. That is roughly 40 extra files and 40
+`@font-face` rules, which is why it is not the starting point.
+
+### Subsets
+
+The Latin ranges are chosen for *this* vault and are worth checking before
 adding content in a new script: Latin-1 (Spanish accents), Latin Extended-A
 (Esperanto `ŝ ĝ ĉ ĵ ĥ ŭ`, as in `Saŝa` and `Miĉjo`), General Punctuation, Box
 Drawing (`└` in the infobox templates) and Geometric Shapes (`◆`, the
-folder-note marker). A character outside them renders as tofu.
+folder-note marker). A character outside every shipped range renders as tofu.
+
+For Japanese the declared `unicode-range` is deliberately *wider* than the file
+-- it names whole blocks while the file holds a chosen part of them. That is
+the correct direction to be wrong in: a kanji the file lacks falls through to
+the next family in the stack, per character, so it still renders.
+
+### Adding or changing a family
+
+Add it to `FAMILIES` in `build_fonts.py` with the `SUBSETS` entry it should be
+cut to, drop its sources into `vendor/fonts/`, and name it in `SITE` if the
+site should ship it. A full run prunes output no longer listed; `--family`
+builds a subset of them and skips pruning, so a one-off rebuild of one family
+cannot delete another's output.
+
+Three stacks under `wotc-beyond` end at a bare `Inter` -- `--font` (headings,
+dataview column headers, statblock titles), `--font-monospace` and
+`--font-default` -- and `site-overrides.css` overrides all three so a new
+family actually gets reached. Adding a face to `FAMILIES` without touching
+those stacks ships a font nothing asks for.
 
 Note `recalcTimestamp=False`: fontTools otherwise stamps the build time into
 `head.modified`, and every run would emit different bytes.
