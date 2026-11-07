@@ -191,7 +191,9 @@ class I18nGalleryModule(TransformModule):
 
         self.count("galleries rendered")
         self.count("gallery images", len(figures))
-        return f'\n<div class="ml-gallery"{_columns(layout)}>' + "".join(figures) + "</div>\n"
+        heading = _heading(table, layout, lang, default)
+        grid = f'<div class="ml-gallery"{_columns(layout)}>' + "".join(figures) + "</div>"
+        return f'\n<div class="ml-gallery-host">{heading}{grid}</div>\n'
 
     def _figure(self, note: Note, ctx: VaultContext, image, title: str) -> str:
         if not image.ref:
@@ -305,6 +307,28 @@ class I18nGalleryModule(TransformModule):
                 *(f"  {path}" for path in sorted(self._empty)[:15]),
             ],
         )
+
+
+def _heading(
+    table: ib.InfoboxTable, layout: dict[str, Any], lang: str, default: str
+) -> str:
+    """The section's own title, translated like any other label.
+
+    Generated rather than written in the note for the same reason the query
+    table's section captions are: a hand-written `## Galería` is one more
+    thing to translate per note, and the one above a `ja` reader's gallery
+    would still say Galería.
+
+    The label key comes from the layout's `galleryHeading`, defaulting to the
+    family name. A key the `labels:` table does not define renders as the key
+    itself -- `resolve_label`'s deliberate behaviour, which tells the author
+    exactly what to add rather than showing nothing.
+    """
+    key = str(layout.get(f"{GALLERY_KEY}Heading") or GALLERY_KEY)
+    text = ib.resolve_label(table, key, lang, default)
+    if not text:
+        return ""
+    return f'<h2 class="ml-gallery-heading">{html.escape(text)}</h2>'
 
 
 def _columns(layout: dict[str, Any]) -> str:

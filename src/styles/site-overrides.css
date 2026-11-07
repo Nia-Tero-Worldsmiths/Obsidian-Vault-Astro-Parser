@@ -528,6 +528,25 @@ html[data-lang="ALL"] .lang-title:first-child {
  * `min(…, 100%)` is what stops a fixed column count from overflowing a narrow
  * screen: at that width the track shrinks instead of the grid scrolling.
  * ------------------------------------------------------------------------ */
+
+/* `clear: both` is the whole reason there is a wrapper and not just the grid.
+ * The theme floats the infobox (`float: inline-start`, 300px), so a block
+ * after it rises into the space beside it and is squeezed to whatever width
+ * is left — which is how a gallery on a note with little prose ended up a
+ * narrow strip. Clearing drops it below the infobox and gives it the full
+ * column. `Cards.css` does exactly this on `table.dataview tbody`; it is the
+ * same problem. */
+.ml-gallery-host {
+  clear: both;
+}
+
+/* Generated rather than written in the note, so it translates: a hand-written
+ * `## Galería` is one more thing to keep per language, and the heading above
+ * a `ja` reader's gallery would still be in Spanish. */
+.ml-gallery-heading {
+  margin-block: 1.25em 0.5em;
+}
+
 .ml-gallery {
   display: grid;
   /* `--ml-gallery-min` is dropped to 0 by the same inline style that sets a
@@ -550,6 +569,10 @@ html[data-lang="ALL"] .lang-title:first-child {
   }
 }
 
+/* Grid items stretch to their row's height, so every card in a row is the
+ * same height whatever its picture. The caption is the last child and the
+ * picture takes everything above it, which is what puts the captions in a row
+ * on one line instead of wherever each image happened to end. */
 .ml-gallery-item {
   display: flex;
   flex-direction: column;
@@ -560,13 +583,21 @@ html[data-lang="ALL"] .lang-title:first-child {
   overflow: hidden;
 }
 
-/* `width: 100%` deliberately beats the `width`/`height` attributes the parser
+/* `flex: 1` claims the space above the caption and `object-fit: contain`
+ * centres the picture in it, so a short drawing sits in the middle of its
+ * card rather than hanging from the top with a gap beneath it.
+ *
+ * `width: 100%` deliberately beats the `width`/`height` attributes the parser
  * writes from a `|size` suffix. Those exist to reserve the right aspect box
- * before the image loads; the grid decides the actual width. */
+ * before the image loads; the grid decides the actual width. `max-height`
+ * stops one very tall drawing from setting the height of every card beside
+ * it. */
 .ml-gallery-item img {
   display: block;
+  flex: 1;
   width: 100%;
-  height: auto;
+  min-height: 0;
+  max-height: 22rem;
   object-fit: contain;
   background: var(--background-secondary, #f6f2ea);
 }

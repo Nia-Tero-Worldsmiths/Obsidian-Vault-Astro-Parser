@@ -44,7 +44,10 @@
   align-items: baseline;
   gap: 0.35rem;
   margin: 0.4rem 0 0;
-  padding: 0.1rem 0.75rem;
+  /* No inline padding. `.nav-tree > .nav-list` is flush with the sidebar's
+   * edge, so 0.75rem here indented this one line past the three collections
+   * it is meant to sit level with. */
+  padding: 0.1rem 0;
   color: var(--text-muted, #555);
   font-size: 0.85rem;
   font-weight: 600;

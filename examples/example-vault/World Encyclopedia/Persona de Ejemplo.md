@@ -40,10 +40,6 @@ language sees it. That is where a note's infobox and its images belong.
 ```i18n-infobox
 ```
 
-## Galería
-
-```i18n-gallery
-```
 
 :::lang es
 ## Historia
@@ -88,3 +84,8 @@ if it is, this whole code sample disappears when the reader switches language.
 Esto está dentro de una valla de código.
 :::
 ```
+
+:::lang all
+```i18n-gallery
+```
+:::

@@ -43,6 +43,10 @@ labels:
   retrato: { es: "Retrato", ja: "肖像", en: "Portrait" }
   nombre: { es: "Nombre", ja: "名前", en: "Name" }
 
+  # The gallery's own heading. Generated rather than written in the note, so
+  # it translates like any other label.
+  gallery: { es: "Galería", ja: "ギャラリー", en: "Gallery" }
+
   # Section captions for a query table. Ordinary labels, translated the same
   # way, so a section heading is never hard-coded into a query.
   miembros: { es: "Miembros", ja: "団員", en: "Members" }

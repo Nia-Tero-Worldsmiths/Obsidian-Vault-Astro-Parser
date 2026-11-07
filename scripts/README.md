@@ -644,11 +644,29 @@ galleryLabel:
 ```
 
 ```markdown
-## Galería
-
+:::lang all
 ```i18n-gallery
 ```
+:::
 ```
+
+**Where to put the fence.** At the end of the note, inside `:::lang all`.
+That is the one placement that both puts the gallery last and shows it in
+every language: an unwrapped fence below the first `:::lang` marker is
+default-language content, so a reader in Japanese would see no pictures at
+all. The module reports that case rather than guessing, the same way
+`i18n-query` does.
+
+Putting those four lines in `z_Templates/Persona.md` is what makes the
+gallery feel automatic: every new character note carries the fence, and a
+fence with nothing to show renders nothing, so it costs an empty note
+nothing.
+
+The heading is generated, not written in the note. A hand-written
+`## Galería` is one more thing to keep per language, and the one above a
+`ja` reader's gallery would still be in Spanish. The label key comes from the
+layout's `galleryHeading`, defaulting to the family name, so defining
+`gallery:` under `labels:` is all a table needs.
 
 **One resolver, two families.** `resolve_images` takes the family name as a
 parameter, so `gallery` brings `galleryLabel`, `gallerySize` and
@@ -675,6 +693,19 @@ gallery has no columns to head. It emits `<figure>` elements in a
 `.ml-gallery` grid, and `galleryColumns` becomes an inline
 `--ml-gallery-columns` -- inline because the count is a number the table may
 name freely and a stylesheet cannot enumerate.
+
+The grid sits inside a `.ml-gallery-host` wrapper whose only job is
+`clear: both`. The theme floats the infobox (`float: inline-start`, 300px), so
+an uncleared block after it rises into the space beside it and is squeezed to
+whatever width is left -- which on a note with little prose made the gallery a
+narrow strip. `Cards.css` clears `table.dataview tbody` for the same reason.
+
+Cards in a row are the same height, because grid items stretch to their row.
+The caption is the last child and the picture takes everything above it with
+`flex: 1` and `object-fit: contain`, so captions line up across a row and a
+short drawing is centred in its card instead of hanging from the top. A
+`max-height` keeps one very tall picture from setting the height of every card
+beside it.
 
 The grid's CSS is written twice, in `src/styles/site-overrides.css` here and in
 the plugin's `styles.css`, under the same class names. That is the standing

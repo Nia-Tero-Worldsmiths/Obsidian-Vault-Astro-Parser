@@ -28,6 +28,7 @@ def table(**kwargs) -> ib.InfoboxTable:
 
 
 TABLE = table(
+    labels={"gallery": {"es": "Galería", "ja": "ギャラリー"}},
     values={
         "galleryLabel": {"Boceto": {"ja": "下書き", "en": "Sketch"}},
         "imageLabel": {"Retrato": {"ja": "肖像"}},
@@ -180,6 +181,30 @@ class Columns(unittest.TestCase):
             i18n_gallery._columns(dict(LAYOUT, galleryColumns=" 4 ")),
             ' style="--ml-gallery-columns: 4; --ml-gallery-min: 0"',
         )
+
+
+class Heading(unittest.TestCase):
+    """Generated, so it translates. A hand-written one would not."""
+
+    def test_it_uses_the_family_name_as_the_label_key(self):
+        self.assertEqual(
+            i18n_gallery._heading(TABLE, LAYOUT, "es", "es"),
+            '<h2 class="ml-gallery-heading">Galería</h2>',
+        )
+
+    def test_it_follows_the_reader_s_language(self):
+        self.assertIn("ギャラリー", i18n_gallery._heading(TABLE, LAYOUT, "ja", "es"))
+
+    def test_a_layout_may_point_at_another_label(self):
+        layout = dict(LAYOUT, galleryHeading="retrato")
+        other = table(labels={"retrato": {"es": "Retratos"}}, layouts={})
+        self.assertIn("Retratos", i18n_gallery._heading(other, layout, "es", "es"))
+
+    def test_an_undefined_label_shows_the_key_rather_than_nothing(self):
+        # `resolve_label`'s deliberate behaviour: the key names exactly what
+        # to add to the table, where a blank heading names nothing.
+        bare = table(labels={}, layouts={})
+        self.assertIn("gallery", i18n_gallery._heading(bare, LAYOUT, "es", "es"))
 
 
 class FenceOptions(unittest.TestCase):
