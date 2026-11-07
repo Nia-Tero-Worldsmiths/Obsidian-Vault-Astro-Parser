@@ -1,0 +1,128 @@
+/* The full-size image modal. Owned by `Lightbox.astro`, imported globally by
+ * `BaseLayout.astro` the way `graph.css` is — the behaviour is mounted on
+ * every page, so its rules have to be there too.
+ *
+ * Which images are clickable is decided once, in the component, and marked
+ * with `.is-zoomable`. Nothing here guesses: a CSS rule that tried to
+ * reproduce the exclusions (maps, withheld-image glyphs, linked images) would
+ * be a second definition of eligibility, free to drift from the first.
+ */
+
+.is-zoomable {
+  cursor: zoom-in;
+}
+
+/* The focus ring matters more than usual here: these are the only focusable
+ * elements on the page that are not obviously controls, so a reader tabbing
+ * through needs to see where they are. */
+.is-zoomable:focus-visible {
+  outline: 2px solid var(--text-accent, #d63636);
+  outline-offset: 2px;
+}
+
+/* The dialog fills the viewport and is transparent, so the whole area around
+ * the picture belongs to it and a click anywhere in that space closes. The UA
+ * stylesheet hides a closed `<dialog>`; `display: grid` would defeat that, so
+ * it is applied only when open. */
+.lightbox[open] {
+  display: grid;
+  grid-template-rows: 1fr auto;
+  place-items: center;
+}
+
+.lightbox {
+  width: 100vw;
+  max-width: 100vw;
+  height: 100dvh;
+  max-height: 100dvh;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  overflow: hidden;
+}
+
+.lightbox::backdrop {
+  background: rgb(0 0 0 / 82%);
+}
+
+/* The picture at its own size, capped to the viewport. Nothing is upscaled:
+ * the site serves originals, so "full size" already means the file as the
+ * vault holds it. */
+.lightbox-image {
+  max-width: 92vw;
+  max-height: 80dvh;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: var(--radius-s, 4px);
+  /* Against a dark backdrop a transparent PNG would otherwise dissolve. */
+  background: var(--background-primary, #fff);
+  cursor: zoom-out;
+}
+
+.lightbox-caption {
+  max-width: 92vw;
+  margin: 0;
+  padding: 0.75rem 1rem 1.25rem;
+  color: #f2ece3;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  text-align: center;
+  text-wrap: balance;
+}
+
+.lightbox-caption[hidden] {
+  display: none;
+}
+
+.lightbox-close {
+  position: fixed;
+  top: 0.75rem;
+  right: 1rem;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 12%);
+  color: #f2ece3;
+  font-family: inherit;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.lightbox-close:hover {
+  background: rgb(255 255 255 / 22%);
+}
+
+.lightbox-close:focus-visible {
+  outline: 2px solid #f2ece3;
+  outline-offset: 2px;
+}
+
+/* `showModal()` makes the rest of the page inert but does not stop it
+ * scrolling behind the backdrop.
+ *
+ * Keyed off the dialog's own state rather than a class JavaScript adds and
+ * removes. A lock that is released by an event handler is a lock that can be
+ * left on: Escape is the one route out the script does not control, and if
+ * its event were ever missed the reader would be left on a page that cannot
+ * scroll, with nothing on screen to explain why. Written this way the lock
+ * exists exactly while the dialog is open, by definition. */
+body:has(dialog.lightbox[open]) {
+  overflow: hidden;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .lightbox[open] {
+    animation: lightbox-in 0.12s ease-out;
+  }
+
+  @keyframes lightbox-in {
+    from {
+      opacity: 0;
+    }
+  }
+}

@@ -37,7 +37,7 @@ import html
 import re
 from typing import Any
 
-from .. import infobox as ib, linking
+from .. import infobox as ib, langblocks, linking
 from ..model import Note, VaultContext
 from .base import TransformModule
 
@@ -73,12 +73,19 @@ class I18nGalleryModule(TransformModule):
         self._empty: set[str] = set()
         #: vault_path -> the refs listed in both `imagen` and `gallery`.
         self._duplicated: dict[str, list[str]] = {}
+        #: Notes whose fence sits where it renders in one language only.
+        self._misplaced: set[str] = set()
+        #: Notes already checked for placement, which is a per-note question
+        #: while `transform` runs once per language body.
+        self._placement_checked: set[str] = set()
 
     # -- per note --------------------------------------------------------
 
     def transform(self, note: Note, ctx: VaultContext) -> Note:
         if FENCE_NAME not in note.body:
             return note
+
+        self._check_placement(note)
 
         table = self._load(ctx)
         if not table.available:
@@ -95,6 +102,40 @@ class I18nGalleryModule(TransformModule):
         if self._table is None:
             self._table = ib.load_table(ctx.config)
         return self._table
+
+    # -- placement -------------------------------------------------------
+
+    def _check_placement(self, note: Note) -> None:
+        """Warn when the fence renders in the default language only.
+
+        A fence below the first `:::lang` marker but outside every block is
+        default-language content while looking shared in the editor, which is
+        the one placement that can surprise an author. A gallery put at the
+        end of a note -- the natural place for it -- lands there easily, and
+        the result is that a reader in Japanese sees no pictures at all.
+
+        Read off `raw_body`, which is never mutated, so this does not depend
+        on module order.
+
+        Warned about rather than forced shared, which is the exception
+        `langblocks` makes for an unwrapped `i18n-infobox`. A gallery may
+        legitimately differ per language -- `gallery_ja` resolves like any
+        other key -- so overriding the author's placement would take away the
+        control that placement is for. Same reasoning as `i18n_query`.
+        """
+        if note.vault_path in self._placement_checked:
+            return
+        self._placement_checked.add(note.vault_path)
+
+        blocks = langblocks.parse_blocks(note.raw_body)
+        if not blocks:
+            return
+
+        default_only = langblocks.default_only_lines(note.raw_body, blocks)
+        for match in _FENCE.finditer(note.raw_body):
+            if note.raw_body.count("\n", 0, match.start()) in default_only:
+                self._misplaced.add(note.vault_path)
+                self.count("fences placed outside every block")
 
     # -- rendering -------------------------------------------------------
 
@@ -201,9 +242,26 @@ class I18nGalleryModule(TransformModule):
     # -- reporting -------------------------------------------------------
 
     def finalize(self, ctx: VaultContext) -> None:
+        self._report_misplaced()
         self._report_undeclared()
         self._report_duplicated()
         self._report_empty()
+
+    def _report_misplaced(self) -> None:
+        if not self._misplaced:
+            return
+        self.section(
+            "Gallery: renders in one language only",
+            [
+                "These fences sit below the first `:::lang` marker but outside",
+                "every block, so they are default-language content while",
+                "looking shared -- a reader in another language sees no",
+                "pictures at all. Move one into the note's preamble, or wrap",
+                "it in `:::lang all`, to show it in every language.",
+                "",
+                *(f"  {path}" for path in sorted(self._misplaced)[:15]),
+            ],
+        )
 
     def _report_undeclared(self) -> None:
         if not self._undeclared:
@@ -250,17 +308,25 @@ class I18nGalleryModule(TransformModule):
 
 
 def _columns(layout: dict[str, Any]) -> str:
-    """The layout's column count, as an inline custom property.
+    """The layout's column count, as inline custom properties.
 
     Inline rather than a class, because the count is a number the table may
     name freely and a stylesheet cannot enumerate. Absent means the grid falls
     back to its own responsive default, which is the right answer for most
     notes.
+
+    Two properties, not one. Without a count the tracks need a minimum width,
+    since that minimum is what decides how many fit; *with* a count the
+    minimum has to go, because three tracks of at least 180px overflow a
+    448px column and the grid would rather scroll than shrink them. So
+    declaring a count also drops the floor to zero, and the pair is always
+    written together.
     """
     raw = layout.get(f"{GALLERY_KEY}Columns")
     if raw is None or not str(raw).strip().isdigit():
         return ""
-    return f' style="--ml-gallery-columns: {int(str(raw).strip())}"'
+    count = int(str(raw).strip())
+    return f' style="--ml-gallery-columns: {count}; --ml-gallery-min: 0"'
 
 
 def _parse_options(source: str) -> dict[str, str] | str:

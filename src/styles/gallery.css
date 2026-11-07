@@ -191,3 +191,11 @@
   color: var(--text-faint, #b9aba0);
   font-style: italic;
 }
+
+/* The stand-in, which carries no usage list by design — it appears wherever a
+ * portrait is missing, so the list would grow with every unillustrated note
+ * and name the notes it is not a picture of. Set apart from `.is-unused`
+ * because the two are opposites: one is shown nowhere, this one everywhere. */
+.gallery-usage.is-standin {
+  color: var(--text-faint, #b9aba0);
+}

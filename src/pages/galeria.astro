@@ -31,6 +31,16 @@ interface GalleryImage {
   license: string;
   author?: string;
   sourceUrl?: string;
+  /**
+   * The stand-in shown where a portrait is missing.
+   *
+   * It is the one image whose mentions say nothing about it — it appears
+   * wherever a note has no picture, so the list grows with every
+   * unillustrated note and names the notes it is *not* a picture of. The
+   * parser sends none, and this flag is what keeps the card from claiming
+   * the opposite, that no note shows it.
+   */
+  standIn?: boolean;
   usedBy: Usage[];
 }
 
@@ -106,7 +116,9 @@ const cards = images.map((image) => ({
             <span class="gallery-author">
               {image.author ?? (image.origin === "licensed" ? "Con licencia" : "Sin autoría registrada")}
             </span>
-            {image.usedBy.length > 0 ? (
+            {image.standIn ? (
+              <span class="gallery-usage is-standin">Suplente de las notas sin retrato</span>
+            ) : image.usedBy.length > 0 ? (
               <span class="gallery-usage">
                 {image.usedBy.map((use, index) => (
                   <>

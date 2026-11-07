@@ -39,6 +39,9 @@ class Asset:
 class Config:
     asset_extensions = (".webp", ".png", ".jpg", ".svg")
 
+    def __init__(self, fallback_images: dict | None = None) -> None:
+        self.fallback_images = fallback_images if fallback_images is not None else {}
+
 
 class Ctx:
     """Enough context for `transform` and `finalize`.
@@ -48,8 +51,10 @@ class Ctx:
     leaving it out.
     """
 
-    def __init__(self, known: set[str] | None = None) -> None:
-        self.config = Config()
+    def __init__(
+        self, known: set[str] | None = None, fallback_images: dict | None = None
+    ) -> None:
+        self.config = Config(fallback_images)
         self.generated: dict = {}
         self.referenced_assets: set[str] = set()
         self._known = known
@@ -186,6 +191,74 @@ class UsedBy(unittest.TestCase):
         module.transform(note("Mara", body="![[Mano.webp]]"), ctx)
         got = run_finalize(module, ctx, [credit("Mano.webp")])
         self.assertEqual(len(got["images"][0]["usedBy"]), 1)
+
+
+class StandIn(unittest.TestCase):
+    """The one image whose mentions say nothing about it.
+
+    The stand-in appears wherever a note has no portrait, so its usage list
+    grows with every unillustrated note and names the notes it is *not* a
+    picture of. It is read out of `fallback_images:` rather than by name, so
+    a stand-in added for another NoteType needs no change in the module.
+    """
+
+    def setUp(self):
+        self.module = gallery_index.GalleryIndexModule(enabled=True)
+        self.ctx = Ctx(fallback_images={"persona": "Placeholder avatar.webp"})
+
+    def _emit(self):
+        return run_finalize(
+            self.module, self.ctx,
+            [credit("Placeholder avatar.webp"), credit("Mano.webp")],
+        )
+
+    def test_the_stand_in_carries_no_usage_list(self):
+        for name in ("Mara", "Nuria", "Godoy"):
+            self.module.transform(
+                note(name, frontmatter={"imagen": "Placeholder avatar.webp"}), self.ctx
+            )
+        got = self._emit()
+        stand_in = next(i for i in got["images"] if i["name"] == "Placeholder avatar")
+        self.assertEqual(stand_in["usedBy"], [])
+
+    def test_it_is_flagged_so_the_page_does_not_call_it_unused(self):
+        # An empty `usedBy` means "no note shows this". For the stand-in that
+        # is the opposite of true, so the two states have to be tellable apart.
+        got = self._emit()
+        stand_in = next(i for i in got["images"] if i["name"] == "Placeholder avatar")
+        self.assertIs(stand_in.get("standIn"), True)
+
+    def test_every_other_image_keeps_its_mentions(self):
+        self.module.transform(note("Mara", frontmatter={"imagen": "Mano.webp"}), self.ctx)
+        got = self._emit()
+        other = next(i for i in got["images"] if i["name"] == "Mano")
+        self.assertEqual([u["title"] for u in other["usedBy"]], ["Mara"])
+        self.assertNotIn("standIn", other)
+
+    def test_it_is_still_in_the_catalogue(self):
+        # Suppressing the mentions, not the image.
+        got = self._emit()
+        self.assertIn("Placeholder avatar", [i["name"] for i in got["images"]])
+
+    def test_it_is_not_reported_as_an_image_no_note_shows(self):
+        # It would be listed every run otherwise, which trains the reader to
+        # skim the one section that is supposed to catch a real omission.
+        got = self._emit()
+        self.assertEqual(gallery_index._unused(got["images"]), ["Mano"])
+
+    def test_matching_ignores_case(self):
+        ctx = Ctx(fallback_images={"persona": "placeholder AVATAR.webp"})
+        module = gallery_index.GalleryIndexModule(enabled=True)
+        module.transform(
+            note("Mara", frontmatter={"imagen": "Placeholder avatar.webp"}), ctx
+        )
+        got = run_finalize(module, ctx, [credit("Placeholder avatar.webp")])
+        self.assertIs(got["images"][0].get("standIn"), True)
+
+    def test_a_vault_with_no_stand_in_declared_flags_nothing(self):
+        module = gallery_index.GalleryIndexModule(enabled=True)
+        got = run_finalize(module, Ctx(), [credit("Mano.webp")])
+        self.assertNotIn("standIn", got["images"][0])
 
 
 class Shape(unittest.TestCase):

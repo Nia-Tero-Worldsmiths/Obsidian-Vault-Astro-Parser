@@ -157,8 +157,15 @@ class Columns(unittest.TestCase):
 
     def test_a_declared_count_becomes_a_custom_property(self):
         self.assertEqual(
-            i18n_gallery._columns(LAYOUT), ' style="--ml-gallery-columns: 3"'
+            i18n_gallery._columns(LAYOUT),
+            ' style="--ml-gallery-columns: 3; --ml-gallery-min: 0"',
         )
+
+    def test_a_count_also_drops_the_track_minimum(self):
+        # Three tracks with a 180px floor overflow a 448px content column:
+        # the grid would scroll rather than shrink them. The floor is only
+        # wanted when the count is `auto-fit` and it decides how many fit.
+        self.assertIn("--ml-gallery-min: 0", i18n_gallery._columns(LAYOUT))
 
     def test_no_count_leaves_the_grid_to_decide(self):
         self.assertEqual(i18n_gallery._columns({"gallery": "gallery"}), "")
@@ -171,7 +178,7 @@ class Columns(unittest.TestCase):
     def test_a_count_written_as_a_string_still_works(self):
         self.assertEqual(
             i18n_gallery._columns(dict(LAYOUT, galleryColumns=" 4 ")),
-            ' style="--ml-gallery-columns: 4"',
+            ' style="--ml-gallery-columns: 4; --ml-gallery-min: 0"',
         )
 
 

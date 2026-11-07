@@ -389,6 +389,34 @@ counter -- a per-render number would differ between builds and break the
 with its label as a caption, so with no JavaScript a gallery is a captioned
 list and no image is unreachable.
 
+### Clicking a picture to see it full size
+
+`src/components/Lightbox.astro` claims every image inside `<main>` and opens
+it in a `<dialog>`. It renders no markup of its own and the parser knows
+nothing about it: six modules emit `<img>` tags and a seventh would be covered
+without anyone remembering to opt in.
+
+**Maps are excluded**, because a `zoommap` already answers the question — it
+pans and zooms in place with its own pin layer, and a flat picture of it would
+be a downgrade. The withheld-image glyph is excluded too: it is a statement
+that a picture is missing, not a picture. The stand-in portrait is *not*
+excluded, because it is a real drawing.
+
+Eligibility is decided once, in the component, and marked with `.is-zoomable`
+for the stylesheet to key off. A CSS rule that tried to restate the exclusions
+would be a second definition free to drift from the first.
+
+The scroll lock is `body:has(dialog.lightbox[open])`, not a class the script
+adds and removes. Escape is the one route out the script does not control, and
+a lock released by a handler is a lock that can be left on — a reader stranded
+on a page that will not scroll, with nothing on screen to explain why. Written
+this way it holds exactly while the dialog is open, and on a browser without
+`:has()` it simply does not apply, which is the harmless failure.
+
+Images get `tabindex` and `role="button"` so the modal is reachable without a
+mouse. That is a real cost on `/galeria`, where it adds 43 tab stops, and the
+alternative was a feature only mouse users could reach.
+
 ### Which image stands for a note
 
 `defaultImageIndex` is zero-based and answers one question asked in two

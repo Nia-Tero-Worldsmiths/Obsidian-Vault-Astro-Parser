@@ -1,0 +1,129 @@
+---
+/**
+ * Click any picture to see it full size.
+ *
+ * Renders no markup of its own, the same way `ImageGallery.astro` does: the
+ * images are already on the page, emitted by six different modules, and this
+ * claims them afterwards. Doing it by delegation rather than by touching each
+ * emitter means an image added by a seventh module is covered without anyone
+ * remembering to opt in — and nothing in the parser has to know a lightbox
+ * exists.
+ *
+ * **Maps are excluded**, because they already answer the question this does.
+ * A `zoommap` pans and zooms in place with its own pin layer, and replacing
+ * that with a flat picture of it would be a downgrade. Withheld-image icons
+ * are excluded too: that glyph is a statement that a picture is missing, not
+ * a picture.
+ *
+ * Eligibility is decided once, in JavaScript, and marked with a class the
+ * stylesheet keys off. Both halves then cannot drift: there is no CSS rule
+ * guessing which images are clickable and no handler guessing which ones look
+ * it.
+ *
+ * `<dialog>` and `showModal()` rather than a hand-rolled overlay: focus
+ * trapping, Escape, `inert` on the rest of the page and a real `::backdrop`
+ * all come for free, and each of them is a thing a hand-rolled version gets
+ * subtly wrong.
+ *
+ * The dialog is built on first use, not rendered into every page. A reader
+ * who never clicks a picture pays nothing for it.
+ */
+---
+
+<script>
+  // Images the reader should be able to open. `main` keeps the sidebar's
+  // graph and its icons out of it without naming them.
+  const SCOPE = "main";
+
+  function eligible(img: HTMLImageElement): boolean {
+    if (!img.closest(SCOPE)) return false;
+    // A map is interactive where it sits; a flat copy of it is a downgrade.
+    if (img.closest(".zoommap")) return false;
+    // The "image withheld" glyph says a picture is missing. It is not one.
+    if (img.classList.contains("image-withheld-icon")) return false;
+    // An image inside a link belongs to the link.
+    if (img.closest("a")) return false;
+    return true;
+  }
+
+  /** The words that describe this picture, for the caption and the dialog. */
+  function describe(img: HTMLImageElement): string {
+    const figure = img.closest("figure");
+    const caption = figure?.querySelector("figcaption")?.textContent?.trim();
+    return caption || img.alt.trim();
+  }
+
+  let dialog: HTMLDialogElement | null = null;
+  let frame: HTMLImageElement;
+  let legend: HTMLElement;
+
+  function build(): HTMLDialogElement {
+    if (dialog) return dialog;
+
+    dialog = document.createElement("dialog");
+    dialog.className = "lightbox";
+
+    const close = document.createElement("button");
+    close.type = "button";
+    close.className = "lightbox-close";
+    // Not a bare "×": a screen reader reads the glyph as "multiplication sign".
+    close.setAttribute("aria-label", "Cerrar");
+    close.textContent = "×";
+    close.addEventListener("click", () => dialog?.close());
+
+    frame = document.createElement("img");
+    frame.className = "lightbox-image";
+
+    legend = document.createElement("p");
+    legend.className = "lightbox-caption";
+
+    dialog.append(close, frame, legend);
+
+    // The dialog fills the viewport and is transparent, so every empty pixel
+    // around the picture is part of it — and a click that lands on the dialog
+    // itself, rather than on the picture or the button, is a click outside.
+    // `::backdrop` clicks arrive here too.
+    dialog.addEventListener("click", (event) => {
+      if (event.target === dialog) dialog.close();
+    });
+
+    document.body.append(dialog);
+    return dialog;
+  }
+
+  function open(img: HTMLImageElement): void {
+    const box = build();
+    const text = describe(img);
+
+    frame.src = img.currentSrc || img.src;
+    frame.alt = img.alt;
+    legend.textContent = text;
+    legend.hidden = text.length === 0;
+    box.setAttribute("aria-label", text || "Imagen");
+
+    // Escape, the focus trap and `inert` on the rest of the page all come
+    // with `showModal`. The scroll lock is CSS keyed off `[open]`, so there
+    // is nothing here to undo on the way out.
+    box.showModal();
+  }
+
+  for (const img of document.querySelectorAll<HTMLImageElement>(`${SCOPE} img`)) {
+    if (!eligible(img)) continue;
+
+    img.classList.add("is-zoomable");
+    // Reachable without a mouse. An image is not natively focusable, so it
+    // has to be given a role and a stop of its own; the alt text is already
+    // the name a screen reader would announce.
+    img.tabIndex = 0;
+    img.setAttribute("role", "button");
+
+    img.addEventListener("click", () => open(img));
+    img.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      // Space scrolls the page otherwise, which is the one key a reader is
+      // most likely to press by habit.
+      event.preventDefault();
+      open(img);
+    });
+  }
+</script>

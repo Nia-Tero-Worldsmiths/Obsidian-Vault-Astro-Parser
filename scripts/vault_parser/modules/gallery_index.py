@@ -37,6 +37,20 @@ from .base import TransformModule
 DEFAULT_ORIGINS = ("original", "licensed")
 
 
+def _unused(images: list[dict[str, Any]]) -> list[str]:
+    """Images no note shows, which is a thing worth reporting.
+
+    A stand-in is excluded: it carries no usage list by design, so counting it
+    here would report it as unused every run and train the reader to skim the
+    section.
+    """
+    return sorted(
+        image["name"]
+        for image in images
+        if not image["usedBy"] and not image.get("standIn")
+    )
+
+
 class GalleryIndexModule(TransformModule):
     name = "gallery_index"
     # After `image_licensing` (82), so the publish decision and the withheld
@@ -87,6 +101,12 @@ class GalleryIndexModule(TransformModule):
             self.warn("no CREDITS.yaml; the gallery index was not built")
             return
 
+        # The stand-ins, read from `fallback_images:` rather than by name, so
+        # adding one for another NoteType needs no change here.
+        fallbacks = {
+            str(name).casefold() for name in ctx.config.fallback_images.values()
+        }
+
         images: list[dict[str, Any]] = []
         missing: list[str] = []
 
@@ -103,7 +123,14 @@ class GalleryIndexModule(TransformModule):
             # The hook that gets an unreferenced image copied at all.
             ctx.referenced_assets.add(asset.vault_path)
 
-            used = sorted(set(self._usage.get(asset.out_name, [])))
+            # A stand-in carries no usage list. It is the one image whose
+            # mentions say nothing about it: it appears wherever a portrait is
+            # missing, so the list grows with every unillustrated note and
+            # names the notes it is *not* a picture of. Suppressed here rather
+            # than in `transform`, so there is one place to look.
+            stand_in = credit.filename.casefold() in fallbacks
+            used = [] if stand_in else sorted(set(self._usage.get(asset.out_name, [])))
+
             images.append(
                 {
                     "file": asset.out_name,
@@ -114,6 +141,11 @@ class GalleryIndexModule(TransformModule):
                     "license": credit.license,
                     **({"author": credit.author} if credit.author else {}),
                     **({"sourceUrl": credit.source} if credit.source else {}),
+                    # Distinct from an empty `usedBy`, which means "no note
+                    # shows this". The page has to tell the two apart or it
+                    # would report the stand-in as unused, which is the
+                    # opposite of true.
+                    **({"standIn": True} if stand_in else {}),
                     "usedBy": [{"title": title, "slug": slug} for title, slug in used],
                 }
             )
@@ -124,11 +156,11 @@ class GalleryIndexModule(TransformModule):
         ctx.generated[self.ARTIFACT] = {"images": images}
 
         self.count("gallery images indexed", len(images))
-        self.count("gallery images used nowhere", sum(1 for i in images if not i["usedBy"]))
+        self.count("gallery images used nowhere", len(_unused(images)))
         self._report(images, missing)
 
     def _report(self, images: list[dict[str, Any]], missing: list[str]) -> None:
-        unused = [i["name"] for i in images if not i["usedBy"]]
+        unused = _unused(images)
         if unused:
             self.section(
                 "Gallery index: images used by no note",
@@ -137,7 +169,7 @@ class GalleryIndexModule(TransformModule):
                     "them. That is allowed -- the page exists partly to surface",
                     "them -- but a character's art usually belongs on their note.",
                     "",
-                    *(f"  {name}" for name in sorted(unused)[:15]),
+                    *(f"  {name}" for name in unused[:15]),
                 ],
             )
         if missing:

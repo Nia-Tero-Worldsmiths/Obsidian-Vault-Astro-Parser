@@ -530,12 +530,24 @@ html[data-lang="ALL"] .lang-title:first-child {
  * ------------------------------------------------------------------------ */
 .ml-gallery {
   display: grid;
+  /* `--ml-gallery-min` is dropped to 0 by the same inline style that sets a
+   * count. Without a count the minimum is what decides how many tracks fit;
+   * with one it must go, or N tracks of at least 180px overflow a content
+   * column narrower than N x 180 and the grid scrolls instead of shrinking. */
   grid-template-columns: repeat(
     var(--ml-gallery-columns, auto-fit),
-    minmax(min(180px, 100%), 1fr)
+    minmax(var(--ml-gallery-min, min(180px, 100%)), 1fr)
   );
   gap: 0.75rem;
   margin: 1rem 0;
+}
+
+/* Below this a declared count stops being an improvement: three columns on a
+ * phone is three thumbnails nobody can see. Reflowing wins. */
+@media (max-width: 33rem) {
+  .ml-gallery {
+    grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr));
+  }
 }
 
 .ml-gallery-item {
