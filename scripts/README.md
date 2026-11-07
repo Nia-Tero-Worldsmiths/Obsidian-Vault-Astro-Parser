@@ -587,6 +587,117 @@ The markup comes from `grouping.render_table`, the same function
 never how it looks. `dataview_queries` stays enabled: the chapter list on
 `tomo` notes keeps using it for now.
 
+### Note galleries: the `i18n-gallery` fence
+
+An infobox shows the pictures that *identify* someone -- one at a time, behind
+a dropdown, with `defaultImageIndex` naming the one that stands for the note
+everywhere else. That is the wrong shape for the rest of the art. A vault with
+five drawings of a character wants to show five drawings, and the ones worth
+showing are precisely those the author kept out of the infobox.
+
+So a layout declares a second family of keys:
+
+```yaml
+  persona:
+    image: imagen        # the infobox: one picture at a time
+    gallery: gallery     # the fence: all of them at once
+    galleryColumns: 3
+```
+
+and the note lists them the same way it lists its infobox images:
+
+```yaml
+gallery:
+  - 250408 Brunhilda.webp
+  - 251001 Brunhilda.webp
+galleryLabel:
+  - Boceto
+  - Ropa de calle
+```
+
+```markdown
+## Galería
+
+```i18n-gallery
+```
+```
+
+**One resolver, two families.** `resolve_images` takes the family name as a
+parameter, so `gallery` brings `galleryLabel`, `gallerySize` and
+`galleryFallback` with it exactly as `image` brings its own three. Pairing by
+position, `imagen_ja`-style per-language overrides, translation through the
+shared `values:` vocabulary and `|size` suffixes are therefore not reimplemented
+-- they are the same code path, and `tests/test_gallery.py` still proves it for
+the infobox.
+
+`galleryFallback` is deliberately *not* declared in the vault's table. A note
+with no portrait gets a stand-in because a missing portrait is a gap; a note
+with no extra art has nothing missing, and a row of stand-ins would be worse
+than an empty section. A fence that resolves to no images renders nothing at
+all and is reported instead.
+
+**Not a `groups:` entry**, which is where the query table's second use case
+goes. A query selects *other notes* by tag or frontmatter key, and both
+implementations skip the host note unconditionally; a gallery's rows are one
+note's own images. That is an axis `members:` cannot express.
+
+**Not a table either.** `grouping.render_table` always emits a `<thead>`, its
+output is a byte-for-byte contract shared with `dataview_queries`, and a
+gallery has no columns to head. It emits `<figure>` elements in a
+`.ml-gallery` grid, and `galleryColumns` becomes an inline
+`--ml-gallery-columns` -- inline because the count is a number the table may
+name freely and a stylesheet cannot enumerate.
+
+The grid's CSS is written twice, in `src/styles/site-overrides.css` here and in
+the plugin's `styles.css`, under the same class names. That is the standing
+rule: parity between the two readers beats one copy of a declaration.
+
+Two things are reported: an image listed in both `imagen` and `gallery`, which
+draws it twice, and a fence that found nothing.
+
+### The gallery page: `gallery.json`
+
+`gallery_index` (order 84) writes `src/generated/gallery.json`, which
+`src/pages/galeria.astro` renders as a searchable index of every image the site
+may show, with its author and the notes that use it.
+
+It selects **by origin**, from `CREDITS.yaml`, rather than from what the notes
+reference:
+
+```yaml
+  gallery_index:
+    enabled: true
+    origins: [original, licensed]
+```
+
+That distinction is the reason the module exists. `credits.json`, written by
+`image_licensing`, lists what the build *shipped* -- the images a published
+note happened to reference -- which is right for an attribution footer and
+wrong for a catalogue. Eighteen of this vault's original drawings are credited,
+publishable and referenced by nothing, so they were invisible: not on the site,
+and not in the list of what the site holds.
+
+`ai` is excluded by default even though the vault's policy publishes it:
+publishable and wanted are different questions, and this is a catalogue of the
+project's own artwork.
+
+**The load-bearing line is `ctx.referenced_assets.add(...)`.** That set is what
+the emitter copies, so an image indexed but not registered becomes a 404 on the
+page. `image_licensing` uses the same hook for the stand-ins it substitutes. On
+this vault it takes `public/vault-assets/` from 26 files to 44, and 14 MB to
+20 MB.
+
+Images are copied byte for byte, at whatever size the vault holds them.
+Normalising them is the plugin's job and happens in the vault before the parser
+runs; there is deliberately no resizing step here, and adding one would put the
+same responsibility in two places, one of which cannot be run from Obsidian.
+
+`usedBy` is built from `assets.collect_asset_references`, the same function the
+pipeline uses to decide what to copy, so the catalogue's idea of "used" cannot
+drift from the build's. Only published notes count -- an unpublished one is not
+a link target. That function lives in `assets.py` rather than `run.py` because a
+module importing `run` would be a cycle: `run` imports the module registry.
+
 ## Theme extraction
 
 `extract_theme.py` is a separate deterministic script, not a pipeline module --

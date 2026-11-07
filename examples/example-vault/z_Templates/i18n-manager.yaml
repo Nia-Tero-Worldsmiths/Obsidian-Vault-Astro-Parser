@@ -75,6 +75,11 @@ values:
   imageLabel:
     Retrato: { ja: 肖像, en: Portrait }
 
+  # The gallery's labels are their own vocabulary, under the key that names
+  # them -- `galleryLabel`, exactly as `imageLabel` names the infobox's.
+  galleryLabel:
+    Boceto: { ja: 下書き, en: Sketch }
+
   especie:
     Humano: { ja: "人間", en: "Human" }
     Aksolotl: { ja: "アホロートル", en: "Axolotl" }
@@ -90,6 +95,14 @@ layouts:
     # published. Read by the parser's `image_licensing` module too, so the
     # site and Obsidian agree on what a portrait-less note looks like.
     imageFallback: retrato-generico.svg
+    # The ```i18n-gallery fence reads the SAME four-key family under a
+    # different name, which is why one resolver serves both: `gallery` implies
+    # `galleryLabel` and `gallerySize` the way `image` implies `imageLabel` and
+    # `imageSize`. `galleryFallback` is deliberately NOT declared -- a note
+    # with no extra art should show nothing, not a row of stand-ins.
+    gallery: gallery
+    # How many across. Omit it and the grid picks a count from the width.
+    galleryColumns: 2
     status: estado
     sections:
       - heading: informacion

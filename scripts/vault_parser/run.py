@@ -11,20 +11,16 @@ a dead link.
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass, field
 
 from . import assets as assets_mod
-from . import emit, frontmatter, ingest
+from . import emit, ingest
 from .config import Config
 from .model import Asset, Note
 from .modules.registry import Pipeline
 from .report import Report
 
 # Markdown image/link syntax: ![alt](path) and [text](path).
-_MARKDOWN_LINK = re.compile(r"!?\[[^\]]*\]\(\s*<?([^)<>\s]+)>?\s*\)")
-
-
 @dataclass
 class RunResult:
     report: Report
@@ -65,7 +61,7 @@ def execute(
     # pipeline has already rewritten, then add whatever the modules resolved.
     referenced = set(ctx.referenced_assets)
     for note in published:
-        referenced |= collect_asset_references(note, config)
+        referenced |= assets_mod.collect_asset_references(note, config)
 
     # Applied last, so it wins over both sources above. A module that ruled an
     # asset out of publication must be able to keep it out of `public/`, even
@@ -113,51 +109,3 @@ def execute(
     )
 
     return RunResult(report=report, notes=published, copied_assets=copied)
-
-
-def collect_asset_references(note: Note, config: Config) -> set[str]:
-    """Every image a note points at, from frontmatter and body alike.
-
-    Obsidian expresses image references three ways in this vault -- an `imagen`
-    frontmatter value, a `![[...]]` embed, and (in at least one note) a bare
-    `[[alquimia tiera.png]]` link -- plus standard markdown syntax. All four
-    resolve through the same asset map.
-
-    Scans `raw_body` rather than `body`: by the time this runs the pipeline has
-    rewritten embeds into `<img>` tags, and scanning the transformed text would
-    miss exactly the images the transform just committed us to serving.
-    """
-    references: set[str] = set()
-
-    def consider(candidate: str) -> None:
-        cleaned = candidate.strip().strip("<>").split("#", 1)[0].split("|", 1)[0].strip()
-        if not cleaned or "://" in cleaned:
-            return
-        suffix = "." + cleaned.rsplit(".", 1)[-1].lower() if "." in cleaned else ""
-        if suffix in config.asset_extensions:
-            references.add(cleaned)
-
-    for ref in note.frontmatter_refs:
-        consider(ref.target)
-    for ref in frontmatter.parse_links(note.raw_body):
-        consider(ref.target)
-    for match in _MARKDOWN_LINK.finditer(note.raw_body):
-        consider(match.group(1))
-
-    # Frontmatter values that name an image directly rather than as a wikilink,
-    # e.g. `imagen: Moby (Rondfort).jpg`.
-    for value in note.frontmatter.values():
-        for candidate in _strings(value):
-            consider(candidate)
-
-    return references
-
-
-def _strings(value) -> list[str]:
-    if isinstance(value, str):
-        return [value]
-    if isinstance(value, list):
-        return [item for entry in value for item in _strings(entry)]
-    if isinstance(value, dict):
-        return [item for entry in value.values() for item in _strings(entry)]
-    return []

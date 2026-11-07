@@ -14,6 +14,16 @@ defaultImageIndex: 1
 imageLabel:
   - Retrato
   - Forma alterna (etiqueta larga a propósito)
+# The gallery: the pictures deliberately kept OUT of the infobox, paired with
+# their labels by position exactly as `imagen`/`imageLabel` are. The second one
+# is `origin: external` in CREDITS.yaml, so it is withheld and replaced -- a
+# gallery image clears the same licence bar as any other.
+gallery:
+  - escudo-ejemplo.svg
+  - retrato-ajeno.svg
+galleryLabel:
+  - Boceto
+  - Retrato ajeno (no publicable)
 # Membership without a tag -- the case a tag query cannot see. The group box
 # finds this note because `organizacion` names the guild.
 organizacion: "[[Gremio de Ejemplo]]"
@@ -28,6 +38,11 @@ This paragraph sits above the first language marker, so it is shared: every
 language sees it. That is where a note's infobox and its images belong.
 
 ```i18n-infobox
+```
+
+## Galería
+
+```i18n-gallery
 ```
 
 :::lang es

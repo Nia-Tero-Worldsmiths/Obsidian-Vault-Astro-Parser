@@ -1,0 +1,193 @@
+/* Styles for `/galeria` and for the sidebar link that reaches it.
+ *
+ * Imported by `BaseLayout.astro` alongside `graph.css`, which is the pattern
+ * for a component stylesheet here: the sidebar link ships on every page, so
+ * the file has to load everywhere, and the page's own rules are inert
+ * elsewhere. Every colour goes through a theme variable with a literal
+ * fallback, so the page still reads if `vault-theme.css` is absent.
+ *
+ * The gallery *grid* that a note's `i18n-gallery` fence emits is NOT here --
+ * that lives in `site-overrides.css` beside the infobox gallery's rules,
+ * because it has a counterpart in the plugin's `styles.css` and the two have
+ * to be found together.
+ */
+
+/* ---------------------------------------------------------------------------
+ * The sidebar link
+ *
+ * Outside `.nav-tree` on purpose. The tree is a reflection of the vault and
+ * nothing synthetic belongs in it, and standing apart is also what makes this
+ * read as a separate destination rather than a fourth collection: it does not
+ * inherit the tree's item spacing, so there is a gap above it that the
+ * collections do not have between themselves.
+ *
+ * The typography is matched to a top-level tree entry on purpose -- 0.85rem
+ * from `.nav-list`, weight 600 from `.nav-folder-name`, and the same 0.85em
+ * mask geometry -- so it reads as a peer of the three collections rather than
+ * as a stray control.
+ * ------------------------------------------------------------------------ */
+
+/* Font Awesome Free 6.4.0 by @fontawesome -- https://fontawesome.com
+   Icons: CC BY 4.0 (https://fontawesome.com/license/free)
+   Copyright 2023 Fonticons, Inc.
+
+   `images`, taken from the vault's own pack (z_Assets/Icons/fontawesome-free/)
+   and inlined as a CSS mask so it takes `currentColor`, exactly as the three
+   collection glyphs in `NavTree.astro` are. Inlining strips the notice the
+   original SVG carries, which is why it is restated here. See THIRD-PARTY.md. */
+:root {
+  --icon-gallery: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 576 512'%3E%3Cpath d='M160 32c-35.3 0-64 28.7-64 64V320c0 35.3 28.7 64 64 64H512c35.3 0 64-28.7 64-64V96c0-35.3-28.7-64-64-64H160zM396 138.7l96 144c4.9 7.4 5.4 16.8 1.2 24.6S480.9 320 472 320H328 280 200c-9.2 0-17.6-5.3-21.6-13.6s-2.9-18.2 2.9-25.4l64-80c4.6-5.7 11.4-9 18.7-9s14.2 3.3 18.7 9l17.3 21.6 56-84C360.5 132 368 128 376 128s15.5 4 20 10.7zM192 128a32 32 0 1 1 64 0 32 32 0 1 1 -64 0zM48 120c0-13.3-10.7-24-24-24S0 106.7 0 120V344c0 75.1 60.9 136 136 136H456c13.3 0 24-10.7 24-24s-10.7-24-24-24H136c-48.6 0-88-39.4-88-88V120z'/%3E%3C/svg%3E");
+}
+
+.sidebar-extra {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  margin: 0.4rem 0 0;
+  padding: 0.1rem 0.75rem;
+  color: var(--text-muted, #555);
+  font-size: 0.85rem;
+  font-weight: 600;
+  line-height: 1.5;
+  text-decoration: none;
+}
+
+.sidebar-extra::before {
+  content: "";
+  display: inline-block;
+  flex: none;
+  width: 0.85em;
+  height: 0.85em;
+  margin-right: 0.1rem;
+  background-color: var(--text-accent, #a33);
+  -webkit-mask-image: var(--icon-gallery);
+  mask-image: var(--icon-gallery);
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  vertical-align: -0.05em;
+}
+
+.sidebar-extra:hover,
+.sidebar-extra.is-active {
+  color: var(--text-normal, #1a1a1a);
+}
+
+/* ---------------------------------------------------------------------------
+ * The page
+ * ------------------------------------------------------------------------ */
+
+/* The search box has a placeholder, which a screen reader does not treat as a
+ * name. A real `<label>`, hidden the way that keeps it in the accessibility
+ * tree -- `display: none` would remove it from the tree along with the pixels.
+ * The first utility class on the site; move it to `base.css` if a second use
+ * appears. */
+.u-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.gallery-search {
+  display: block;
+  width: 100%;
+  margin: 0 0 0.5rem;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid var(--background-modifier-border, #d8ccbc);
+  border-radius: var(--radius-s, 4px);
+  background: var(--background-modifier-form-field, var(--background-primary, #fff));
+  color: var(--text-normal, #1a1a1a);
+  font-family: inherit;
+  font-size: 0.95rem;
+}
+
+.gallery-search:focus-visible {
+  outline: 2px solid var(--text-accent, #d63636);
+  outline-offset: 1px;
+}
+
+/* Announced to a screen reader as the list changes, and read by sighted users
+ * as the only signal that a search matched nothing. */
+.gallery-count {
+  margin: 0 0 1rem;
+  color: var(--text-muted, #6b6862);
+  font-size: 0.85rem;
+}
+
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr));
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.gallery-card {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--background-modifier-border, #d8ccbc);
+  border-radius: var(--radius-m, 6px);
+  background: var(--background-secondary, #f6f2ea);
+  overflow: hidden;
+}
+
+.gallery-card[hidden] {
+  display: none;
+}
+
+/* A fixed aspect box, so a column of cards does not jump about as portraits
+ * and landscape maps alternate. `contain` rather than `cover` because this is
+ * a catalogue: seeing the whole picture matters more than a tidy edge. */
+.gallery-card img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: contain;
+  background: var(--background-primary, #fff);
+}
+
+.gallery-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.5rem 0.7rem 0.6rem;
+}
+
+.gallery-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.gallery-author,
+.gallery-usage {
+  color: var(--text-muted, #6b6862);
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.gallery-usage a {
+  color: inherit;
+}
+
+.gallery-usage a:hover {
+  color: var(--link-color, #d63636);
+}
+
+/* An image no note shows. Stated rather than left blank: the blank would read
+ * as missing data, and this is a fact about the vault worth seeing. */
+.gallery-usage.is-unused {
+  color: var(--text-faint, #b9aba0);
+  font-style: italic;
+}

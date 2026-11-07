@@ -148,6 +148,45 @@ def resolve_image(target: str, ctx: VaultContext) -> tuple[str, Asset | None] | 
     return None
 
 
+def image_tag(
+    ref: str, ctx: VaultContext, *, alt: str, size: str | None = None
+) -> str | None:
+    """Resolve an image reference and write its `<img>`, or None if unresolved.
+
+    Resolving, registering the asset for copying, and formatting the tag are
+    one step because getting any of the three wrong is invisible until the
+    page is built: an unregistered asset is a 404, and an `<img>` written with
+    different attributes in two places is a picture that is sized differently
+    depending on which module drew it.
+
+    `size` is the `WxH` (or bare `W`) a `|size` suffix or a layout asked for.
+    Non-numeric parts are dropped rather than written through, so a typo
+    yields an unsized image instead of invalid HTML.
+
+    Returning None rather than "" or raising leaves the caller to decide what
+    a miss means: the infobox warns on the note and counts it, where a gallery
+    may simply have nothing to show.
+    """
+    resolved = resolve_image(ref, ctx)
+    if resolved is None:
+        return None
+
+    url, asset = resolved
+    # An icon is a data URI with nothing to copy; `resolve_image` returns None
+    # for the asset precisely so this stays correct.
+    if asset is not None:
+        ctx.referenced_assets.add(asset.vault_path)
+
+    attrs = f'src="{html.escape(url)}" alt="{html.escape(alt)}"'
+    if size:
+        width, _, height = str(size).partition("x")
+        if width.strip().isdigit():
+            attrs += f' width="{width.strip()}"'
+        if height.strip().isdigit():
+            attrs += f' height="{height.strip()}"'
+    return f"<img {attrs} />"
+
+
 def resolve(ref: WikiRef, ctx: VaultContext) -> Resolution:
     """Resolve one reference against the vault index."""
     config = ctx.config

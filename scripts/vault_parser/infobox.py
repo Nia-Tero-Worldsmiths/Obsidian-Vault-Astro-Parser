@@ -719,13 +719,23 @@ def first_image_ref(raw: Any) -> str | None:
     return None
 
 
-def label_key_for(layout: dict[str, Any]) -> str:
-    """The frontmatter key holding this layout's image labels.
+#: The layout key naming the infobox's images. A layout declares a *family* of
+#: four keys around this name -- `<key>`, `<key>Label`, `<key>Size` and
+#: `<key>Fallback` -- and every one of them defaults to that spelling, so a
+#: layout that declares only `image: imagen` gets `imageLabel`, `imageSize` and
+#: `imageFallback` without saying so. The note's gallery section is the same
+#: four keys under `gallery`, which is why this is a parameter and not a
+#: literal: one resolver, two families, nothing duplicated.
+IMAGE_KEY = "image"
 
-    Defaults to `imageLabel`, which is also the property name notes use, so
+
+def label_key_for(layout: dict[str, Any], key: str = IMAGE_KEY) -> str:
+    """The frontmatter key holding this layout's labels for `key`.
+
+    Defaults to `<key>Label`, which is also the property name notes use, so
     no layout in the table has to declare anything for a gallery to work.
     """
-    return str(layout.get("imageLabel") or "imageLabel")
+    return str(layout.get(f"{key}Label") or f"{key}Label")
 
 
 def resolve_images(
@@ -734,6 +744,8 @@ def resolve_images(
     frontmatter: dict[str, Any],
     lang: str,
     default: str,
+    *,
+    key: str = IMAGE_KEY,
 ) -> list[GalleryImage]:
     """Every image the layout asks for, each with the label that names it.
 
@@ -750,27 +762,30 @@ def resolve_images(
 
     A note with fewer labels than images keeps the unlabelled ones; the caller
     reports it. A note with no usable image at all falls back to the layout's
-    `imageFallback`, as before.
+    `<key>Fallback`, as before -- which a gallery layout simply does not
+    declare, so an empty gallery is empty rather than a row of stand-ins.
     """
-    key = layout.get("image")
-    if not key:
+    frontmatter_key = layout.get(key)
+    if not frontmatter_key:
         return []
 
-    refs = resolve_value(table, frontmatter, str(key), lang, default) or []
-    labels = resolve_value(table, frontmatter, label_key_for(layout), lang, default) or []
+    refs = resolve_value(table, frontmatter, str(frontmatter_key), lang, default) or []
+    labels = (
+        resolve_value(table, frontmatter, label_key_for(layout, key), lang, default) or []
+    )
 
     images = [
-        GalleryImage(*_split_size(ref, layout), label=_label_at(labels, index))
+        GalleryImage(*_split_size(ref, layout, key), label=_label_at(labels, index))
         for index, ref in enumerate(normalize_image_ref(r) for r in refs)
         if ref
     ]
     if images:
         return images
 
-    fallback = normalize_image_ref(layout.get("imageFallback"))
+    fallback = normalize_image_ref(layout.get(f"{key}Fallback"))
     # The stand-in is not a picture *of* anything, so it takes no label even
     # when the note supplied one.
-    return [GalleryImage(*_split_size(fallback, layout))] if fallback else []
+    return [GalleryImage(*_split_size(fallback, layout, key))] if fallback else []
 
 
 def _label_at(values: list[str], index: int) -> str:
@@ -784,12 +799,14 @@ def _label_at(values: list[str], index: int) -> str:
     return values[index] if index < len(values) else ""
 
 
-def _split_size(ref: str, layout: dict[str, Any]) -> tuple[str, str | None]:
+def _split_size(
+    ref: str, layout: dict[str, Any], key: str = IMAGE_KEY
+) -> tuple[str, str | None]:
     """Separate a trailing `|size`, preferring one the author wrote."""
     if "|" in ref:
         name, _, inline = ref.partition("|")
         return name.strip(), inline.strip() or None
-    size = layout.get("imageSize")
+    size = layout.get(f"{key}Size")
     return ref, str(size) if size else None
 
 

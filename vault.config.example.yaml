@@ -140,6 +140,10 @@ modules:
   # data in the shared table, so a roster and a chapter list are one module.
   # Runs beside dataview_queries, which keeps rendering what has not moved.
   i18n_query: { enabled: true }
+  # Renders the ```i18n-gallery fence: the note's own images, from the
+  # `gallery:` family of keys in its layout, laid out as a grid. The infobox
+  # shows one picture at a time; this shows the ones kept out of it.
+  i18n_gallery: { enabled: true }
   # Renders the ```i18n-infobox fence the i18n Manager plugin owns, from the
   # note's NoteType plus the shared table. The hand-written >[!infobox] callout
   # still renders too (callouts + inline_dataview), so the vault can convert a
@@ -168,4 +172,14 @@ modules:
     enabled: true
     placeholder: true # false removes the image instead of marking the gap
     lenient: false # true reports non-publishable images without withholding them
+  # Indexes every image the vault's CREDITS.yaml marks with one of `origins`,
+  # with its author and the published notes that use it, as gallery.json --
+  # the data behind the site's gallery page. Selecting by origin rather than
+  # by what notes reference is the point: it surfaces artwork no note shows
+  # yet, and copies it so the page can link to it.
+  gallery_index:
+    enabled: true
+    # `ai` is publishable under the policy above and deliberately left out:
+    # this is a catalogue of the project's own artwork.
+    origins: [original, licensed]
   graph: { enabled: true }

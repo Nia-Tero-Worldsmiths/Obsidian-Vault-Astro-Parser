@@ -509,3 +509,59 @@ html[data-lang="ALL"] .lang-title:first-child {
   font-size: 0.85rem;
   color: var(--text-muted, #6b6862);
 }
+
+/* ---------------------------------------------------------------------------
+ * Note gallery (```i18n-gallery)
+ *
+ * The infobox shows one picture at a time behind a chooser because its column
+ * is about 290px wide. This is the opposite case — the pictures a note keeps
+ * *out* of the infobox, in the full content width, all at once — so it is a
+ * grid of figures and has no control at all.
+ *
+ * Written twice on purpose: the same fence renders through the plugin inside
+ * Obsidian, and `styles.css` there carries the same rules under the same class
+ * names. Parity between the two readers is worth more than one copy of a
+ * declaration.
+ *
+ * `--ml-gallery-columns` is set inline by the layout's `galleryColumns`, and
+ * falls back to `auto-fit` so a layout that says nothing still reflows. The
+ * `min(…, 100%)` is what stops a fixed column count from overflowing a narrow
+ * screen: at that width the track shrinks instead of the grid scrolling.
+ * ------------------------------------------------------------------------ */
+.ml-gallery {
+  display: grid;
+  grid-template-columns: repeat(
+    var(--ml-gallery-columns, auto-fit),
+    minmax(min(180px, 100%), 1fr)
+  );
+  gap: 0.75rem;
+  margin: 1rem 0;
+}
+
+.ml-gallery-item {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  border: 1px solid var(--background-modifier-border, #d8ccbc);
+  border-radius: var(--radius-m, 6px);
+  background: var(--background-secondary, #f6f2ea);
+  overflow: hidden;
+}
+
+/* `width: 100%` deliberately beats the `width`/`height` attributes the parser
+ * writes from a `|size` suffix. Those exist to reserve the right aspect box
+ * before the image loads; the grid decides the actual width. */
+.ml-gallery-item img {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+  background: var(--background-secondary, #f6f2ea);
+}
+
+.ml-gallery-caption {
+  padding: 0.35rem 0.6rem;
+  color: var(--text-muted, #6b6862);
+  font-size: 0.82em;
+  line-height: 1.35;
+}

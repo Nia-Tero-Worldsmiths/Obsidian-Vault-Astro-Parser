@@ -9,7 +9,7 @@ theme while the pipeline stays strictly sequenced:
 
     10 comments -> 20 links -> 30 inline_dataview -> 40 callouts -> 50 cleanup
     -> 60 dataview_queries -> 70 nav_tree -> 80 zoommap -> 82 image_licensing
-    -> 85 empty_headings -> 90 graph
+    -> 84 gallery_index -> 85 empty_headings -> 90 graph
 
 Module files are named for what they do, not for where they sit. `order` is the
 only thing that sequences them, so it cannot drift out of step with a number in
@@ -38,9 +38,11 @@ from .nav_tree import NavTreeModule
 from .zoommap import ZoommapModule
 from .empty_headings import EmptyHeadingsModule
 from .image_licensing import ImageLicensingModule
+from .gallery_index import GalleryIndexModule
 from .graph import GraphModule
 from .i18n_infobox import I18nInfoboxModule
 from .i18n_query import I18nQueryModule
+from .i18n_gallery import I18nGalleryModule
 from .lang_blocks import LangBlocksModule
 
 _MODULE_CLASSES: tuple[type[TransformModule], ...] = (
@@ -52,11 +54,13 @@ _MODULE_CLASSES: tuple[type[TransformModule], ...] = (
     CleanupModule,
     DataviewQueriesModule,
     I18nQueryModule,
+    I18nGalleryModule,
     I18nInfoboxModule,
     NavTreeModule,
     ZoommapModule,
     EmptyHeadingsModule,
     ImageLicensingModule,
+    GalleryIndexModule,
     GraphModule,
 )
 

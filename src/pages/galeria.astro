@@ -1,0 +1,161 @@
+---
+/**
+ * The gallery: every image the site is allowed to show, with its author and
+ * the notes that use it.
+ *
+ * A site-only page, like `/grafo` — there is no note behind it, so it passes
+ * only `title` to the layout and takes no breadcrumb and no active node in
+ * the tree.
+ *
+ * Its data is `gallery.json`, written by `modules/gallery_index.py`, and
+ * loaded the way the graph loads its own: `import.meta.glob` with a fallback,
+ * so disabling the module leaves a page that says there is nothing rather
+ * than a build that fails.
+ *
+ * Deliberately not `credits.json`, which answers a different question — what
+ * the build shipped, meaning the images a published note happened to
+ * reference. Eighteen of this vault's drawings are credited, publishable and
+ * referenced by nothing; a catalogue that hides them is not a catalogue.
+ */
+import BaseLayout from "../layouts/BaseLayout.astro";
+
+interface Usage {
+  title: string;
+  slug: string;
+}
+
+interface GalleryImage {
+  file: string;
+  name: string;
+  origin: string;
+  license: string;
+  author?: string;
+  sourceUrl?: string;
+  usedBy: Usage[];
+}
+
+const loaded = Object.values(
+  import.meta.glob<{ images: GalleryImage[] }>("../generated/gallery.json", {
+    eager: true,
+    import: "default",
+  }),
+)[0] ?? { images: [] };
+
+const images = loaded.images;
+
+/**
+ * What the search box matches against, folded once at build time.
+ *
+ * The same folding the parser applies to a query term — case and accents
+ * dropped — so typing "olbaum" finds *Ölbaum* and "brunhilda" finds every
+ * dated drawing of her. Done here rather than in the browser because the set
+ * is fixed at build time and folding 43 strings on every keystroke would be
+ * work repeated for no reason.
+ */
+const fold = (text: string) =>
+  text
+    .normalize("NFKD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase();
+
+const cards = images.map((image) => ({
+  ...image,
+  haystack: fold(
+    [image.name, image.author ?? "", ...image.usedBy.map((u) => u.title)].join(" "),
+  ),
+}));
+---
+
+<BaseLayout title="Galería">
+  <h1>Galería</h1>
+  <p>
+    {cards.length} imagen{cards.length === 1 ? "" : "es"} de la obra original del
+    proyecto y de material con licencia para publicarse. Cada una indica su autoría
+    y en qué notas aparece. Las imágenes generadas por IA y las de terceros sin
+    permiso no se muestran aquí.
+  </p>
+
+  <label class="u-visually-hidden" for="gallery-search">Buscar por nombre, autoría o nota</label>
+  <input
+    id="gallery-search"
+    class="gallery-search"
+    type="search"
+    placeholder="Buscar por nombre, autoría o nota…"
+    autocomplete="off"
+    data-gallery-search
+  />
+  <p class="gallery-count" role="status" aria-live="polite" data-gallery-count>
+    {cards.length} de {cards.length}
+  </p>
+
+  <ul class="gallery-grid" data-gallery-grid>
+    {
+      cards.map((image) => (
+        <li class="gallery-card" data-haystack={image.haystack}>
+          {/* `loading="lazy"` matters more here than anywhere else on the site:
+              this is the only page that puts every image in the vault on one
+              screen. `decoding="async"` keeps a large WebP off the main thread. */}
+          <img
+            src={`/vault-assets/${image.file}`}
+            alt={image.name}
+            loading="lazy"
+            decoding="async"
+          />
+          <div class="gallery-meta">
+            <span class="gallery-name">{image.name}</span>
+            <span class="gallery-author">
+              {image.author ?? (image.origin === "licensed" ? "Con licencia" : "Sin autoría registrada")}
+            </span>
+            {image.usedBy.length > 0 ? (
+              <span class="gallery-usage">
+                {image.usedBy.map((use, index) => (
+                  <>
+                    {index > 0 && ", "}
+                    <a href={`/${use.slug}`}>{use.title}</a>
+                  </>
+                ))}
+              </span>
+            ) : (
+              <span class="gallery-usage is-unused">No aparece en ninguna nota</span>
+            )}
+          </div>
+        </li>
+      ))
+    }
+  </ul>
+</BaseLayout>
+
+<script>
+  // The site's only client-side filter. No index and no dependency: 43 cards
+  // is small enough that hiding rows directly beats anything cleverer, and the
+  // haystack each card carries was folded at build time.
+  const box = document.querySelector<HTMLInputElement>("[data-gallery-search]");
+  const grid = document.querySelector<HTMLElement>("[data-gallery-grid]");
+  const count = document.querySelector<HTMLElement>("[data-gallery-count]");
+
+  if (box && grid && count) {
+    const cards = [...grid.querySelectorAll<HTMLElement>(".gallery-card")];
+    const total = cards.length;
+
+    const fold = (text: string) =>
+      text.normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase();
+
+    const apply = () => {
+      const terms = fold(box.value).split(/\s+/).filter(Boolean);
+      let shown = 0;
+      for (const card of cards) {
+        const haystack = card.dataset.haystack ?? "";
+        // Every term must match, so a second word narrows rather than widens.
+        const hit = terms.every((term) => haystack.includes(term));
+        card.toggleAttribute("hidden", !hit);
+        if (hit) shown++;
+      }
+      count.textContent = `${shown} de ${total}`;
+    };
+
+    box.addEventListener("input", apply);
+    // A browser may restore the field's value on back-navigation, after the
+    // markup was served with every card visible.
+    if (box.value) apply();
+  }
+</script>

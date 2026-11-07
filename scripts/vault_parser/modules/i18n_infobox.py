@@ -264,27 +264,16 @@ class I18nInfoboxModule(TransformModule):
     def _img_tag(self, note: Note, ctx: VaultContext, image, title: str) -> str:
         if not image.ref:
             return ""
-        resolved = linking.resolve_image(image.ref, ctx)
-        if resolved is None:
+        # The label describes this picture; the title describes the note, and
+        # is only worth repeating when there is nothing better.
+        tag = linking.image_tag(
+            image.ref, ctx, alt=image.label or title, size=image.size
+        )
+        if tag is None:
             self.count("portrait missing asset")
             note.warn(f"infobox image not found: {image.ref}")
             return ""
-
-        url, asset = resolved
-        if asset is not None:
-            ctx.referenced_assets.add(asset.vault_path)
-
-        # The label describes this picture; the title describes the note, and
-        # is only worth repeating when there is nothing better.
-        alt = image.label or title
-        attrs = f'src="{html.escape(url)}" alt="{html.escape(alt)}"'
-        if image.size:
-            width, _, height = str(image.size).partition("x")
-            if width.strip().isdigit():
-                attrs += f' width="{width.strip()}"'
-            if height.strip().isdigit():
-                attrs += f' height="{height.strip()}"'
-        return f"<img {attrs} />"
+        return tag
 
     def _table_html(self, section, ctx: VaultContext) -> str:
         rows: list[str] = ['<table class="ml-infobox-table">']
