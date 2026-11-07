@@ -84,6 +84,11 @@ const navTree = Object.values(generated)[0] ?? { children: [] };
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    {/* Every language of a note shares this URL -- switching is a `data-lang`
+        attribute, not a route -- so there is exactly one canonical address per
+        note and no `hreflang` alternates to declare. Built from `Astro.site`,
+        which is why `site` has to be set in astro.config.mjs. */}
+    <link rel="canonical" href={new URL(Astro.url.pathname, Astro.site).href} />
     <title>{title}</title>
   </head>
   <body class="theme-light wotc-beyond sizing-readable">
