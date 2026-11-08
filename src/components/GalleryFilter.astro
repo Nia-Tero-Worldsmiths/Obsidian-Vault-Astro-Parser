@@ -1,0 +1,92 @@
+---
+/**
+ * One dropdown of OR-ed checkboxes for the gallery.
+ *
+ * Extracted when the author filter arrived: two controls that have to look and
+ * behave alike are better served by one component than by two copies free to
+ * drift apart. This is markup only -- the filtering lives in `galeria.astro`'s
+ * script, which collects every dropdown by `data-gallery-filter` and learns
+ * which dimension of a card each one narrows from `data-filter-kind`.
+ *
+ * `<details>` rather than a button with scripted state: open and close, Escape
+ * and keyboard focus all come from the element, and the panel still opens with
+ * JavaScript unavailable.
+ */
+import Localized from "./Localized.astro";
+import { DEFAULT_LANGUAGE, pick, type Localized as LocalizedText } from "../i18n/site";
+
+interface Option {
+  /** What a ticked box contributes to the picked set, matched exactly. */
+  value: string;
+  /**
+   * A vault string -- a note's title, an author's name -- is the same in
+   * every language, so it ships once. The entries that are *not* vault
+   * strings ("Sin usar", "Con licencia") are ours to translate, and ship
+   * once per language like everything else on the page.
+   */
+  label: string | LocalizedText;
+  count: number;
+  /** Draw the separating rule above this option. */
+  rule?: boolean;
+}
+
+interface Props {
+  /** The dimension this narrows: `note` or `author`. */
+  kind: string;
+  /** The panel's `aria-label`. */
+  label: LocalizedText;
+  /** The summary's text with nothing picked. */
+  none: LocalizedText;
+  /** The summary's text with more than one picked; `{n}` is how many. */
+  some: LocalizedText;
+  clear: LocalizedText;
+  options: Option[];
+}
+
+const { kind, label, none, some, clear, options } = Astro.props;
+---
+
+<details
+  class="gallery-filter"
+  data-gallery-filter
+  data-filter-kind={kind}
+  data-filter-none={JSON.stringify(none)}
+  data-filter-some={JSON.stringify(some)}
+>
+  <summary class="gallery-filter-summary">
+    {/* Starts in the default language; the page's script rewrites it on a
+        switch, because it is also rebuilt to name the one picked entry. */}
+    <span data-filter-summary>{pick(none, DEFAULT_LANGUAGE)}</span>
+  </summary>
+
+  <div
+    class="gallery-filter-panel"
+    role="group"
+    aria-label={pick(label, DEFAULT_LANGUAGE)}
+    data-filter-panel
+    data-filter-panel-labels={JSON.stringify(label)}
+  >
+    {
+      options.map((option) => (
+        <>
+          {option.rule && <hr class="gallery-filter-rule" />}
+          <label class="gallery-filter-option">
+            <input type="checkbox" value={option.value} data-filter-check />
+            <span class="gallery-filter-name">
+              {typeof option.label === "string" ? (
+                option.label
+              ) : (
+                <Localized text={option.label} />
+              )}
+            </span>
+            <span class="gallery-filter-count">{option.count}</span>
+          </label>
+        </>
+      ))
+    }
+
+    <button type="button" class="gallery-filter-clear" data-filter-clear hidden>
+      <Localized text={clear} />
+    </button>
+  </div>
+</details>

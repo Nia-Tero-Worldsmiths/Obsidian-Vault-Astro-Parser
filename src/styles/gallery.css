@@ -205,10 +205,10 @@
 
 /* ── The filter row ──────────────────────────────────────────────────────── */
 
-/* Search and the note filter sit side by side, and stack under each other
- * once there is no room for both. The search takes the slack because its
- * content is open-ended, while the dropdown's width is its longest note
- * title. */
+/* Search and the two dropdowns sit in one row, and the dropdowns drop under
+ * the search box once there is no room for all three. The search takes the
+ * slack because its content is open-ended, while a dropdown is only ever as
+ * wide as its own longest label. */
 .gallery-controls {
   display: flex;
   flex-wrap: wrap;
@@ -217,8 +217,21 @@
   margin: 0 0 0.5rem;
 }
 
+/* The floor is what makes the row wrap rather than squeeze: without it the
+ * search box would shrink to a sliver before the dropdowns gave way, and a
+ * search box too narrow to read a query back is worse than a second row. */
 .gallery-search-field {
   flex: 1 1 16rem;
+  min-width: 12rem;
+}
+
+/* Both dropdowns wrap as one, so a narrow screen puts them side by side on
+ * their own line instead of stranding one beside the search box. */
+.gallery-filter-group {
+  display: flex;
+  flex-wrap: wrap;
+  flex: 0 1 auto;
+  gap: 0.5rem;
   min-width: 0;
 }
 
@@ -300,6 +313,14 @@
   overflow-y: auto;
 }
 
+/* Only the last dropdown sits at the end of the row; any before it would, if
+ * also right-aligned, hang a panel wider than its button off the left of the
+ * page. Each of those opens rightwards from its own button instead. */
+.gallery-filter-group > .gallery-filter:not(:last-child) .gallery-filter-panel {
+  right: auto;
+  left: 0;
+}
+
 .gallery-filter-option {
   display: flex;
   align-items: center;
@@ -357,6 +378,14 @@
 
 .gallery-filter-clear:hover {
   color: var(--text-normal, #1a1a1a);
+}
+
+/* The script hides this button while nothing is picked, and `display: block`
+ * above outranks the browser's own `[hidden] { display: none }` -- author
+ * styles beat the UA sheet -- so without this the button is on screen
+ * offering to clear a selection that does not exist. */
+.gallery-filter-clear[hidden] {
+  display: none;
 }
 
 /* Shown in place of the grid when the filters match nothing. Without it the

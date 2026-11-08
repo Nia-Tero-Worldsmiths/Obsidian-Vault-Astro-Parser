@@ -103,13 +103,13 @@ export const GRAPH = {
 export const GALLERY = {
   heading: { es: "Galería", ja: "ギャラリー", en: "Gallery" } as Localized,
   intro: {
-    es: "{n} imágenes de la obra original del proyecto y de material con licencia para publicarse. Cada una indica su autoría y en qué notas aparece. Las imágenes generadas por IA y las de terceros sin permiso no se muestran aquí.",
+    es: "{n} imágenes de la obra original del proyecto y de material con licencia para publicarse. Cada una indica su autor y en qué notas aparece. Las imágenes generadas por IA y las de terceros sin permiso no se muestran aquí.",
     ja: "プロジェクトのオリジナル作品と公開許諾のある素材、あわせて{n}点。各画像に作者と掲載ノートを示しています。AI生成画像および許諾のない第三者の画像は掲載していません。",
     en: "{n} images from the project's original artwork and from material licensed for publication. Each one names its author and the notes it appears on. AI-generated images and third-party images without permission are not shown here.",
   } as Localized,
 
   searchLabel: {
-    es: "Buscar por nombre, autoría o nota",
+    es: "Buscar por nombre, autor o nota",
     ja: "名前・作者・ノートで検索",
     en: "Search by name, author or note",
   } as Localized,
@@ -155,6 +155,31 @@ export const GALLERY = {
   /** The two entries that are not notes. */
   bucketUnused: { es: "Sin usar", ja: "未使用", en: "Unused" } as Localized,
   bucketStandIn: { es: "Suplente", ja: "代替画像", en: "Stand-in" } as Localized,
+
+  /* ── The per-author filter ──
+   *
+   * Shaped exactly like the one above, and it shares `filterClear`: one
+   * button, one wording, and no way for the two dropdowns to disagree about
+   * what clearing a selection is called. Its own two non-author entries are
+   * `authorLicensed` and `authorUnknown` below, which the cards already say.
+   */
+
+  authorFilterLabel: {
+    es: "Filtrar por autor",
+    ja: "作者で絞り込む",
+    en: "Filter by author",
+  } as Localized,
+  authorFilterNone: {
+    es: "Todos los autores",
+    ja: "すべての作者",
+    en: "All authors",
+  } as Localized,
+  /** `{n}` is how many are picked. */
+  authorFilterSome: {
+    es: "{n} autores seleccionados",
+    ja: "{n}名の作者を選択",
+    en: "{n} authors selected",
+  } as Localized,
 
   /* ── Card states ── */
 

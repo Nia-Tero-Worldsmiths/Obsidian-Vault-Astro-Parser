@@ -17,17 +17,21 @@
  * reference. Fifteen of this vault's drawings are credited, publishable and
  * referenced by nothing; a catalogue that hides them is not a catalogue.
  *
- * **The two filters compose.** Picking notes is an OR — show anything that
- * appears on any of them — and the text box is then ANDed with that, so a
- * selection narrows and a word narrows further.
+ * **The three filters compose.** Each dropdown is an OR within itself — show
+ * anything on any of the picked notes, by any of the picked authors — and the
+ * dropdowns and the text box are then ANDed with each other, so every control
+ * only ever narrows.
  *
- * Which is why the note filter is not merely a canned search string. The box
+ * Which is why neither dropdown is merely a canned search string. The box
  * matches note titles too, so typing "Diana" also matches the *filenames*
  * `Diana y Brunhilda lvl11`, `Diana (busto)` and every other picture with her
  * name in it. "Is a picture of" and "appears on the page of" are different
- * questions, and only the checkbox answers the second one exactly.
+ * questions, and only the checkbox answers the second one exactly. The same
+ * holds for authors: an author's name is in the haystack, so typing it finds
+ * their work *and* any picture whose title happens to contain it.
  */
 import BaseLayout from "../layouts/BaseLayout.astro";
+import GalleryFilter from "../components/GalleryFilter.astro";
 import Localized from "../components/Localized.astro";
 import { DEFAULT_LANGUAGE, GALLERY, LANGUAGE_CODES, pick } from "../i18n/site";
 
@@ -80,9 +84,12 @@ const fold = (text: string) =>
     .replace(/[̀-ͯ]/g, "")
     .toLowerCase();
 
-/** The two filter entries that are not notes. Prefixed so no slug can collide. */
+/* The filter entries that are not notes, and the two that are not authors.
+   Prefixed so that no slug and no author's real name can collide with one. */
 const UNUSED = "::unused";
 const STAND_IN = "::standin";
+const LICENSED = "::licensed";
+const UNKNOWN = "::unknown";
 
 const cards = images.map((image) => ({
   ...image,
@@ -91,6 +98,14 @@ const cards = images.map((image) => ({
      matching in the browser a `split(" ").includes(...)` rather than a
      substring test that would let `briar` also match `briarwood`. */
   notes: image.usedBy.map((use) => use.slug).join(" "),
+  /* One author per image, so this is a single value rather than a list — and
+     matching it exactly is what lets an author's name hold spaces. The two
+     fallbacks mirror what the card itself prints below. */
+  authorKey: image.author
+    ? image.author
+    : image.origin === "licensed"
+      ? LICENSED
+      : UNKNOWN,
   haystack: fold(
     [image.name, image.author ?? "", ...image.usedBy.map((u) => u.title)].join(" "),
   ),
@@ -117,6 +132,78 @@ const noteFilters = [...noteCounts.values()].sort((a, b) =>
 
 const unusedCount = cards.filter((card) => card.bucket === "unused").length;
 const standInCount = cards.filter((card) => card.bucket === "standin").length;
+
+/**
+ * Every credited author, with how many pictures the gallery shows of theirs.
+ *
+ * Alphabetical rather than by count, like the notes above: one drawer has
+ * made most of this vault's artwork, and a list that puts them first and
+ * everyone else in a tail orders the entries by something the reader is not
+ * looking them up by.
+ */
+const authorCounts = new Map<string, number>();
+for (const card of cards) {
+  if (!card.author) continue;
+  authorCounts.set(card.author, (authorCounts.get(card.author) ?? 0) + 1);
+}
+const authorFilters = [...authorCounts.entries()]
+  .map(([name, count]) => ({ name, count }))
+  .sort((a, b) => a.name.localeCompare(b.name, "es"));
+
+const licensedCount = cards.filter((card) => card.authorKey === LICENSED).length;
+const unknownCount = cards.filter((card) => card.authorKey === UNKNOWN).length;
+
+/* The dropdowns' entries. The `rule` flag draws the separating line above the
+   first entry that is not a note / not an author, so the group below it reads
+   as the aside it is — and disappears with it when the vault has none. */
+const noteOptions = [
+  ...noteFilters.map((note) => ({
+    value: note.slug,
+    label: note.title,
+    count: note.count,
+  })),
+  ...(unusedCount > 0
+    ? [{ value: UNUSED, label: GALLERY.bucketUnused, count: unusedCount, rule: true }]
+    : []),
+  ...(standInCount > 0
+    ? [
+        {
+          value: STAND_IN,
+          label: GALLERY.bucketStandIn,
+          count: standInCount,
+          rule: unusedCount === 0,
+        },
+      ]
+    : []),
+];
+
+const authorOptions = [
+  ...authorFilters.map((author) => ({
+    value: author.name,
+    label: author.name,
+    count: author.count,
+  })),
+  ...(licensedCount > 0
+    ? [
+        {
+          value: LICENSED,
+          label: GALLERY.authorLicensed,
+          count: licensedCount,
+          rule: true,
+        },
+      ]
+    : []),
+  ...(unknownCount > 0
+    ? [
+        {
+          value: UNKNOWN,
+          label: GALLERY.authorUnknown,
+          count: unknownCount,
+          rule: licensedCount === 0,
+        },
+      ]
+    : []),
+];
 ---
 
 {/* `<title>` stays in the default language, as it does on every note: a note
@@ -144,63 +231,39 @@ const standInCount = cards.filter((card) => card.bucket === "standin").length;
       />
     </div>
 
-    {
-      noteFilters.length > 0 && (
-        <details class="gallery-filter" data-gallery-filter>
-          {/* `<details>` rather than a button with scripted state: open and
-              close, Escape and keyboard focus all come from the element, and
-              the panel still opens with JavaScript unavailable. */}
-          <summary class="gallery-filter-summary">
-            <span data-filter-summary>{pick(GALLERY.filterNone, DEFAULT_LANGUAGE)}</span>
-          </summary>
+    {/* Grouped so that the two dropdowns wrap together: on a narrow screen
+        they drop under the search box side by side, rather than one of them
+        going first and leaving the other stranded beside it. */}
+    <div class="gallery-filter-group">
+      {/* The note dropdown's two trailing entries are states the cards
+          already distinguish, so the filter gets them for nothing — and they
+          are much of why this page exists: artwork no note shows yet. */}
+      {
+        noteOptions.length > 0 && (
+          <GalleryFilter
+            kind="note"
+            label={GALLERY.filterLabel}
+            none={GALLERY.filterNone}
+            some={GALLERY.filterSome}
+            clear={GALLERY.filterClear}
+            options={noteOptions}
+          />
+        )
+      }
 
-          <div
-            class="gallery-filter-panel"
-            role="group"
-            aria-label={pick(GALLERY.filterLabel, DEFAULT_LANGUAGE)}
-            data-filter-panel
-            data-filter-panel-labels={JSON.stringify(GALLERY.filterLabel)}
-          >
-            {noteFilters.map((note) => (
-              <label class="gallery-filter-option">
-                <input type="checkbox" value={note.slug} data-filter-note />
-                <span class="gallery-filter-name">{note.title}</span>
-                <span class="gallery-filter-count">{note.count}</span>
-              </label>
-            ))}
-
-            {/* The cards already distinguish these two states, so the filter
-                gets them for nothing — and they are much of why the page
-                exists: artwork no note shows yet. */}
-            {(unusedCount > 0 || standInCount > 0) && <hr class="gallery-filter-rule" />}
-
-            {unusedCount > 0 && (
-              <label class="gallery-filter-option">
-                <input type="checkbox" value={UNUSED} data-filter-note />
-                <span class="gallery-filter-name">
-                  <Localized text={GALLERY.bucketUnused} />
-                </span>
-                <span class="gallery-filter-count">{unusedCount}</span>
-              </label>
-            )}
-
-            {standInCount > 0 && (
-              <label class="gallery-filter-option">
-                <input type="checkbox" value={STAND_IN} data-filter-note />
-                <span class="gallery-filter-name">
-                  <Localized text={GALLERY.bucketStandIn} />
-                </span>
-                <span class="gallery-filter-count">{standInCount}</span>
-              </label>
-            )}
-
-            <button type="button" class="gallery-filter-clear" data-filter-clear hidden>
-              <Localized text={GALLERY.filterClear} />
-            </button>
-          </div>
-        </details>
-      )
-    }
+      {
+        authorOptions.length > 0 && (
+          <GalleryFilter
+            kind="author"
+            label={GALLERY.authorFilterLabel}
+            none={GALLERY.authorFilterNone}
+            some={GALLERY.authorFilterSome}
+            clear={GALLERY.filterClear}
+            options={authorOptions}
+          />
+        )
+      }
+    </div>
   </div>
 
   <p class="gallery-count" role="status" aria-live="polite" data-gallery-count></p>
@@ -213,6 +276,7 @@ const standInCount = cards.filter((card) => card.bucket === "standin").length;
           data-haystack={image.haystack}
           data-notes={image.notes}
           data-bucket={image.bucket}
+          data-author={image.authorKey}
         >
           {/* `loading="lazy"` matters more here than anywhere else on the site:
               this is the only page that puts every image in the vault on one
@@ -279,11 +343,27 @@ const standInCount = cards.filter((card) => card.bucket === "standin").length;
     const cards = [...grid.querySelectorAll<HTMLElement>(".gallery-card")];
     const total = cards.length;
 
-    const details = document.querySelector<HTMLDetailsElement>("[data-gallery-filter]");
-    const summary = document.querySelector<HTMLElement>("[data-filter-summary]");
-    const panel = document.querySelector<HTMLElement>("[data-filter-panel]");
-    const clear = document.querySelector<HTMLButtonElement>("[data-filter-clear]");
-    const checks = [...document.querySelectorAll<HTMLInputElement>("[data-filter-note]")];
+    /**
+     * The dropdowns, read off the page rather than named here.
+     *
+     * Each one carries the dimension it narrows and its own summary wording,
+     * so adding a third is a matter of rendering another `<GalleryFilter>`
+     * and teaching `keep` below about its dimension — nothing else in here
+     * counts them or knows their names.
+     */
+    type Labels = Record<string, string>;
+    const dropdowns = [
+      ...document.querySelectorAll<HTMLDetailsElement>("[data-gallery-filter]"),
+    ].map((details) => ({
+      details,
+      kind: details.dataset.filterKind ?? "",
+      none: JSON.parse(details.dataset.filterNone ?? "{}") as Labels,
+      some: JSON.parse(details.dataset.filterSome ?? "{}") as Labels,
+      summary: details.querySelector<HTMLElement>("[data-filter-summary]"),
+      panel: details.querySelector<HTMLElement>("[data-filter-panel]"),
+      clear: details.querySelector<HTMLButtonElement>("[data-filter-clear]"),
+      checks: [...details.querySelectorAll<HTMLInputElement>("[data-filter-check]")],
+    }));
 
     const fold = (text: string) =>
       text.normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase();
@@ -306,25 +386,45 @@ const standInCount = cards.filter((card) => card.bucket === "standin").length;
       return ((active ?? host).textContent ?? "").trim();
     };
 
+    /**
+     * Whether one dropdown's selection keeps a card.
+     *
+     * Within a dropdown the picked entries are an OR: a card survives if it
+     * belongs to *any* of them. Nothing picked is no constraint at all,
+     * rather than an empty result.
+     */
+    const keep = (card: HTMLElement, kind: string, picked: Set<string>) => {
+      if (picked.size === 0) return true;
+
+      if (kind === "author") {
+        // One author per image, so an exact match on the whole value — which
+        // is also what lets an author's name hold spaces, where the slugs
+        // below have to be split apart.
+        return picked.has(card.dataset.author ?? "");
+      }
+
+      const notes = (card.dataset.notes ?? "").split(" ").filter(Boolean);
+      const bucket = card.dataset.bucket;
+      return (
+        notes.some((slug) => picked.has(slug)) ||
+        (!!bucket && picked.has("::" + bucket))
+      );
+    };
+
     const apply = () => {
       const terms = fold(box.value).split(/\s+/).filter(Boolean);
-      const chosen = checks.filter((check) => check.checked);
-      const picked = new Set(chosen.map((check) => check.value));
+      const state = dropdowns.map((dropdown) => {
+        const chosen = dropdown.checks.filter((check) => check.checked);
+        return { dropdown, chosen, picked: new Set(chosen.map((c) => c.value)) };
+      });
 
       let shown = 0;
       for (const card of cards) {
-        // The notes are an OR: a card survives if it belongs to *any* of them.
-        // Nothing picked is no constraint at all, not an empty result.
-        let hit = true;
-        if (picked.size > 0) {
-          const notes = (card.dataset.notes ?? "").split(" ").filter(Boolean);
-          const bucket = card.dataset.bucket;
-          hit =
-            notes.some((slug) => picked.has(slug)) ||
-            (!!bucket && picked.has("::" + bucket));
-        }
-        // The text box is ANDed with that, and its own words with each other,
-        // so a selection narrows and every word narrows further.
+        // The dropdowns are ANDed with each other and with the text box, whose
+        // own words are ANDed too, so every control only ever narrows.
+        let hit = state.every(({ dropdown, picked }) =>
+          keep(card, dropdown.kind, picked),
+        );
         if (hit) {
           const haystack = card.dataset.haystack ?? "";
           hit = terms.every((term) => haystack.includes(term));
@@ -337,38 +437,51 @@ const standInCount = cards.filter((card) => card.bucket === "standin").length;
       count.textContent = fill(GALLERY.count, lang(), { shown, total });
       if (empty) empty.hidden = shown > 0;
 
-      // The summary names the one chosen note, because "1 nota seleccionada"
-      // withholds the only thing the reader would want it to say.
-      if (summary) {
-        summary.textContent =
-          chosen.length === 0
-            ? pick(GALLERY.filterNone, lang())
-            : chosen.length === 1
-              ? nameOf(chosen[0])
-              : fill(GALLERY.filterSome, lang(), { n: chosen.length });
+      for (const { dropdown, chosen } of state) {
+        // The summary names the single chosen entry, because "1 nota
+        // seleccionada" withholds the only thing a reader wants it to say.
+        if (dropdown.summary) {
+          dropdown.summary.textContent =
+            chosen.length === 0
+              ? pick(dropdown.none, lang())
+              : chosen.length === 1
+                ? nameOf(chosen[0])
+                : fill(dropdown.some, lang(), { n: chosen.length });
+        }
+        if (dropdown.clear) dropdown.clear.hidden = chosen.length === 0;
       }
-      if (clear) clear.hidden = chosen.length === 0;
     };
 
     box.addEventListener("input", apply);
-    for (const check of checks) check.addEventListener("change", apply);
 
-    if (clear) {
-      clear.addEventListener("click", () => {
-        for (const check of checks) check.checked = false;
+    for (const dropdown of dropdowns) {
+      for (const check of dropdown.checks) check.addEventListener("change", apply);
+
+      dropdown.clear?.addEventListener("click", () => {
+        for (const check of dropdown.checks) check.checked = false;
         apply();
+      });
+
+      // Two panels open at once overlap each other, and only one of them can
+      // be the one the reader is reading. `<details name>` would do this in
+      // the browsers that have it; this works in the rest too.
+      dropdown.details.addEventListener("toggle", () => {
+        if (!dropdown.details.open) return;
+        for (const other of dropdowns) {
+          if (other !== dropdown) other.details.open = false;
+        }
       });
     }
 
     // A dropdown left open after the reader has moved on is clutter. Closing
     // on an outside click is the one behaviour `<details>` does not provide.
-    if (details) {
-      document.addEventListener("click", (event) => {
-        if (!details.open) return;
-        if (event.target instanceof Node && details.contains(event.target)) return;
+    document.addEventListener("click", (event) => {
+      for (const { details } of dropdowns) {
+        if (!details.open) continue;
+        if (event.target instanceof Node && details.contains(event.target)) continue;
         details.open = false;
-      });
-    }
+      }
+    });
 
     /**
      * Retranslate what CSS cannot.
@@ -385,7 +498,8 @@ const standInCount = cards.filter((card) => card.bucket === "standin").length;
       box.placeholder = label + "…";
       box.setAttribute("aria-label", label);
 
-      if (panel) {
+      for (const { panel } of dropdowns) {
+        if (!panel) continue;
         const panelLabels: Record<string, string> = JSON.parse(
           panel.dataset.filterPanelLabels ?? "{}",
         );
