@@ -160,8 +160,9 @@ re-walking the vault.
 
 Current order: `10 comments -> 15 lang_blocks -> 20 links
 -> 30 inline_dataview -> 40 callouts -> 50 cleanup -> 60 dataview_queries
--> 65 i18n_infobox -> 70 nav_tree -> 80 zoommap -> 82 image_licensing
--> 85 empty_headings -> 90 graph`.
+-> 62 i18n_query -> 63 i18n_gallery -> 65 i18n_infobox -> 70 nav_tree
+-> 80 zoommap -> 82 image_licensing -> 84 gallery_index -> 85 empty_headings
+-> 90 graph -> 95 site_index`.
 
 **Order is load-bearing.** Obsidian strips `%%comments%%` before it parses
 block structure, so `comments` must stay first: a commented line inside a
@@ -786,6 +787,34 @@ pipeline uses to decide what to copy, so the catalogue's idea of "used" cannot
 drift from the build's. Only published notes count -- an unpublished one is not
 a link target. That function lives in `assets.py` rather than `run.py` because a
 module importing `run` would be a cycle: `run` imports the module registry.
+
+### The site's own languages: `site.json`
+
+`site_index` (order 95) writes `src/generated/site.json`: the languages the
+site serves, with their labels, and which is the default.
+
+```json
+{ "defaultLanguage": "es", "languages": [{ "code": "es", "label": "Espanol" }] }
+```
+
+Every other page learns its languages from the note behind it -- `emit` writes
+the codes a note carries into its frontmatter, and `LanguageBar` offers those.
+The three site-authored pages (`/`, `/galeria`, `/grafo`) have no note, so
+`LanguageBar` kept a hand-written copy of the label table with a comment
+admitting it had to be kept in step with `vault.config.yaml` by hand. Their
+words now live in `src/i18n/site.ts`, which reads this file.
+
+It writes `served`, not `codes`. A vault that authors in English while the
+site withholds it must not offer an English pill: the content behind it was
+never emitted, so the reader gets a page that looks broken rather than a stale
+constant. That is the distinction `i18n.ignore` exists for, and reading
+`I18nSettings.served` here is what keeps it from being collapsed a second
+time. The build reports the withheld languages once per run.
+
+Disabled, `site.ts` falls back to the default language alone and those pages
+are monolingual again -- the same shape as the nav tree's and the graph's
+fallbacks, and the reason all three load their artifact through
+`import.meta.glob` rather than a direct import.
 
 ## Theme extraction
 

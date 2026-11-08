@@ -1,0 +1,37 @@
+---
+/**
+ * One string, emitted once per language the site serves.
+ *
+ * The same mechanism a note's body uses: every language ships in the page and
+ * CSS hides the ones that are not active, keyed off `<html data-lang>`. So a
+ * site-authored page switches language with the existing language bar and no
+ * JavaScript of its own.
+ *
+ * For text only. An attribute cannot be duplicated this way -- a `placeholder`
+ * or an `aria-label` has to be set from the page's own script, which is why
+ * `site.ts` is importable from both sides.
+ */
+import { LANGUAGES, fill, type Localized } from "../i18n/site";
+
+interface Props {
+  /** Code -> text, as the tables in `site.ts` hold it. */
+  text: Localized;
+  /** Element to wrap each language in. A block tag when this is the whole paragraph. */
+  tag?: string;
+  /** Extra classes, added alongside `lang-section`. */
+  class?: string;
+  /** `{placeholders}` to substitute, the same for every language. */
+  values?: Record<string, string | number>;
+}
+
+const { text, tag = "span", class: className, values = {} } = Astro.props;
+const Tag = tag as any;
+---
+
+{
+  LANGUAGES.map((language) => (
+    <Tag class:list={["lang-section", className]} data-lang={language.code}>
+      {fill(text, language.code, values)}
+    </Tag>
+  ))
+}

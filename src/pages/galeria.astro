@@ -3,9 +3,9 @@
  * The gallery: every image the site is allowed to show, with its author and
  * the notes that use it.
  *
- * A site-only page, like `/grafo` — there is no note behind it, so it passes
- * only `title` to the layout and takes no breadcrumb and no active node in
- * the tree.
+ * A site-only page, like `/grafo` — there is no note behind it, so its words
+ * come from `src/i18n/site.ts` and it offers every language the site serves
+ * rather than the languages of a note it does not have.
  *
  * Its data is `gallery.json`, written by `modules/gallery_index.py`, and
  * loaded the way the graph loads its own: `import.meta.glob` with a fallback,
@@ -14,10 +14,22 @@
  *
  * Deliberately not `credits.json`, which answers a different question — what
  * the build shipped, meaning the images a published note happened to
- * reference. Eighteen of this vault's drawings are credited, publishable and
+ * reference. Fifteen of this vault's drawings are credited, publishable and
  * referenced by nothing; a catalogue that hides them is not a catalogue.
+ *
+ * **The two filters compose.** Picking notes is an OR — show anything that
+ * appears on any of them — and the text box is then ANDed with that, so a
+ * selection narrows and a word narrows further.
+ *
+ * Which is why the note filter is not merely a canned search string. The box
+ * matches note titles too, so typing "Diana" also matches the *filenames*
+ * `Diana y Brunhilda lvl11`, `Diana (busto)` and every other picture with her
+ * name in it. "Is a picture of" and "appears on the page of" are different
+ * questions, and only the checkbox answers the second one exactly.
  */
 import BaseLayout from "../layouts/BaseLayout.astro";
+import Localized from "../components/Localized.astro";
+import { DEFAULT_LANGUAGE, GALLERY, LANGUAGE_CODES, pick } from "../i18n/site";
 
 interface Usage {
   title: string;
@@ -59,7 +71,7 @@ const images = loaded.images;
  * The same folding the parser applies to a query term — case and accents
  * dropped — so typing "olbaum" finds *Ölbaum* and "brunhilda" finds every
  * dated drawing of her. Done here rather than in the browser because the set
- * is fixed at build time and folding 43 strings on every keystroke would be
+ * is fixed at build time and folding 49 strings on every keystroke would be
  * work repeated for no reason.
  */
 const fold = (text: string) =>
@@ -68,40 +80,140 @@ const fold = (text: string) =>
     .replace(/[̀-ͯ]/g, "")
     .toLowerCase();
 
+/** The two filter entries that are not notes. Prefixed so no slug can collide. */
+const UNUSED = "::unused";
+const STAND_IN = "::standin";
+
 const cards = images.map((image) => ({
   ...image,
+  bucket: image.standIn ? "standin" : image.usedBy.length === 0 ? "unused" : "",
+  /* Space-separated because a slug cannot contain a space, which makes exact
+     matching in the browser a `split(" ").includes(...)` rather than a
+     substring test that would let `briar` also match `briarwood`. */
+  notes: image.usedBy.map((use) => use.slug).join(" "),
   haystack: fold(
     [image.name, image.author ?? "", ...image.usedBy.map((u) => u.title)].join(" "),
   ),
 }));
+
+/**
+ * Every note that shows at least one image, with how many — the filter's
+ * entries.
+ *
+ * Built from the cards rather than from the content collections on purpose: a
+ * note with no pictures would be an entry that can only ever return nothing.
+ */
+const noteCounts = new Map<string, { title: string; slug: string; count: number }>();
+for (const card of cards) {
+  for (const use of card.usedBy) {
+    const seen = noteCounts.get(use.slug);
+    if (seen) seen.count += 1;
+    else noteCounts.set(use.slug, { title: use.title, slug: use.slug, count: 1 });
+  }
+}
+const noteFilters = [...noteCounts.values()].sort((a, b) =>
+  a.title.localeCompare(b.title, "es"),
+);
+
+const unusedCount = cards.filter((card) => card.bucket === "unused").length;
+const standInCount = cards.filter((card) => card.bucket === "standin").length;
 ---
 
-<BaseLayout title="Galería">
-  <h1>Galería</h1>
-  <p>
-    {cards.length} imagen{cards.length === 1 ? "" : "es"} de la obra original del
-    proyecto y de material con licencia para publicarse. Cada una indica su autoría
-    y en qué notas aparece. Las imágenes generadas por IA y las de terceros sin
-    permiso no se muestran aquí.
-  </p>
+{/* `<title>` stays in the default language, as it does on every note: a note
+    has one title, not one per language. */}
+<BaseLayout title={pick(GALLERY.heading, DEFAULT_LANGUAGE)} languages={LANGUAGE_CODES}>
+  <h1><Localized text={GALLERY.heading} /></h1>
+  <Localized tag="p" text={GALLERY.intro} values={{ n: cards.length }} />
 
-  <label class="u-visually-hidden" for="gallery-search">Buscar por nombre, autoría o nota</label>
-  <input
-    id="gallery-search"
-    class="gallery-search"
-    type="search"
-    placeholder="Buscar por nombre, autoría o nota…"
-    autocomplete="off"
-    data-gallery-search
-  />
-  <p class="gallery-count" role="status" aria-live="polite" data-gallery-count>
-    {cards.length} de {cards.length}
-  </p>
+  <div class="gallery-controls">
+    <div class="gallery-search-field">
+      <label class="u-visually-hidden" for="gallery-search">
+        <Localized text={GALLERY.searchLabel} />
+      </label>
+      {/* `placeholder` and `aria-label` are attributes, so they cannot ship
+          once per language the way the text above does. They start in the
+          default language and the script retranslates them on a switch. */}
+      <input
+        id="gallery-search"
+        class="gallery-search"
+        type="search"
+        placeholder={pick(GALLERY.searchLabel, DEFAULT_LANGUAGE) + "…"}
+        autocomplete="off"
+        data-gallery-search
+        data-labels={JSON.stringify(GALLERY.searchLabel)}
+      />
+    </div>
+
+    {
+      noteFilters.length > 0 && (
+        <details class="gallery-filter" data-gallery-filter>
+          {/* `<details>` rather than a button with scripted state: open and
+              close, Escape and keyboard focus all come from the element, and
+              the panel still opens with JavaScript unavailable. */}
+          <summary class="gallery-filter-summary">
+            <span data-filter-summary>{pick(GALLERY.filterNone, DEFAULT_LANGUAGE)}</span>
+          </summary>
+
+          <div
+            class="gallery-filter-panel"
+            role="group"
+            aria-label={pick(GALLERY.filterLabel, DEFAULT_LANGUAGE)}
+            data-filter-panel
+            data-filter-panel-labels={JSON.stringify(GALLERY.filterLabel)}
+          >
+            {noteFilters.map((note) => (
+              <label class="gallery-filter-option">
+                <input type="checkbox" value={note.slug} data-filter-note />
+                <span class="gallery-filter-name">{note.title}</span>
+                <span class="gallery-filter-count">{note.count}</span>
+              </label>
+            ))}
+
+            {/* The cards already distinguish these two states, so the filter
+                gets them for nothing — and they are much of why the page
+                exists: artwork no note shows yet. */}
+            {(unusedCount > 0 || standInCount > 0) && <hr class="gallery-filter-rule" />}
+
+            {unusedCount > 0 && (
+              <label class="gallery-filter-option">
+                <input type="checkbox" value={UNUSED} data-filter-note />
+                <span class="gallery-filter-name">
+                  <Localized text={GALLERY.bucketUnused} />
+                </span>
+                <span class="gallery-filter-count">{unusedCount}</span>
+              </label>
+            )}
+
+            {standInCount > 0 && (
+              <label class="gallery-filter-option">
+                <input type="checkbox" value={STAND_IN} data-filter-note />
+                <span class="gallery-filter-name">
+                  <Localized text={GALLERY.bucketStandIn} />
+                </span>
+                <span class="gallery-filter-count">{standInCount}</span>
+              </label>
+            )}
+
+            <button type="button" class="gallery-filter-clear" data-filter-clear hidden>
+              <Localized text={GALLERY.filterClear} />
+            </button>
+          </div>
+        </details>
+      )
+    }
+  </div>
+
+  <p class="gallery-count" role="status" aria-live="polite" data-gallery-count></p>
 
   <ul class="gallery-grid" data-gallery-grid>
     {
       cards.map((image) => (
-        <li class="gallery-card" data-haystack={image.haystack}>
+        <li
+          class="gallery-card"
+          data-haystack={image.haystack}
+          data-notes={image.notes}
+          data-bucket={image.bucket}
+        >
           {/* `loading="lazy"` matters more here than anywhere else on the site:
               this is the only page that puts every image in the vault on one
               screen. `decoding="async"` keeps a large WebP off the main thread. */}
@@ -114,10 +226,18 @@ const cards = images.map((image) => ({
           <div class="gallery-meta">
             <span class="gallery-name">{image.name}</span>
             <span class="gallery-author">
-              {image.author ?? (image.origin === "licensed" ? "Con licencia" : "Sin autoría registrada")}
+              {image.author ? (
+                image.author
+              ) : image.origin === "licensed" ? (
+                <Localized text={GALLERY.authorLicensed} />
+              ) : (
+                <Localized text={GALLERY.authorUnknown} />
+              )}
             </span>
             {image.standIn ? (
-              <span class="gallery-usage is-standin">Suplente de las notas sin retrato</span>
+              <span class="gallery-usage is-standin">
+                <Localized text={GALLERY.usageStandIn} />
+              </span>
             ) : image.usedBy.length > 0 ? (
               <span class="gallery-usage">
                 {image.usedBy.map((use, index) => (
@@ -128,46 +248,157 @@ const cards = images.map((image) => ({
                 ))}
               </span>
             ) : (
-              <span class="gallery-usage is-unused">No aparece en ninguna nota</span>
+              <span class="gallery-usage is-unused">
+                <Localized text={GALLERY.usageNone} />
+              </span>
             )}
           </div>
         </li>
       ))
     }
   </ul>
+
+  <p class="gallery-empty" hidden data-gallery-empty>
+    <Localized text={GALLERY.empty} />
+  </p>
 </BaseLayout>
 
 <script>
-  // The site's only client-side filter. No index and no dependency: 43 cards
+  // The site's only client-side filter. No index and no dependency: 49 cards
   // is small enough that hiding rows directly beats anything cleverer, and the
   // haystack each card carries was folded at build time.
+  import { DEFAULT_LANGUAGE, GALLERY, fill, pick } from "../i18n/site";
+
+  const root = document.documentElement;
   const box = document.querySelector<HTMLInputElement>("[data-gallery-search]");
   const grid = document.querySelector<HTMLElement>("[data-gallery-grid]");
   const count = document.querySelector<HTMLElement>("[data-gallery-count]");
+  const empty = document.querySelector<HTMLElement>("[data-gallery-empty]");
 
   if (box && grid && count) {
     const cards = [...grid.querySelectorAll<HTMLElement>(".gallery-card")];
     const total = cards.length;
 
+    const details = document.querySelector<HTMLDetailsElement>("[data-gallery-filter]");
+    const summary = document.querySelector<HTMLElement>("[data-filter-summary]");
+    const panel = document.querySelector<HTMLElement>("[data-filter-panel]");
+    const clear = document.querySelector<HTMLButtonElement>("[data-filter-clear]");
+    const checks = [...document.querySelectorAll<HTMLInputElement>("[data-filter-note]")];
+
     const fold = (text: string) =>
       text.normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
+    const lang = () => root.dataset.lang || DEFAULT_LANGUAGE;
+
+    /**
+     * The label a checkbox shows, for the one-selected summary.
+     *
+     * A note's title is one string in any language, but the two bucket
+     * entries are `<Localized>`, so their label holds every language at once
+     * with CSS hiding the rest — and `textContent` does not know that, which
+     * is how the summary first read "Sin usar未使用". Take the active
+     * language's section when there is one.
+     */
+    const nameOf = (check: HTMLInputElement) => {
+      const host = check.closest("label")?.querySelector(".gallery-filter-name");
+      if (!host) return "";
+      const active = host.querySelector(`.lang-section[data-lang="${lang()}"]`);
+      return ((active ?? host).textContent ?? "").trim();
+    };
+
     const apply = () => {
       const terms = fold(box.value).split(/\s+/).filter(Boolean);
+      const chosen = checks.filter((check) => check.checked);
+      const picked = new Set(chosen.map((check) => check.value));
+
       let shown = 0;
       for (const card of cards) {
-        const haystack = card.dataset.haystack ?? "";
-        // Every term must match, so a second word narrows rather than widens.
-        const hit = terms.every((term) => haystack.includes(term));
+        // The notes are an OR: a card survives if it belongs to *any* of them.
+        // Nothing picked is no constraint at all, not an empty result.
+        let hit = true;
+        if (picked.size > 0) {
+          const notes = (card.dataset.notes ?? "").split(" ").filter(Boolean);
+          const bucket = card.dataset.bucket;
+          hit =
+            notes.some((slug) => picked.has(slug)) ||
+            (!!bucket && picked.has("::" + bucket));
+        }
+        // The text box is ANDed with that, and its own words with each other,
+        // so a selection narrows and every word narrows further.
+        if (hit) {
+          const haystack = card.dataset.haystack ?? "";
+          hit = terms.every((term) => haystack.includes(term));
+        }
+
         card.toggleAttribute("hidden", !hit);
         if (hit) shown++;
       }
-      count.textContent = `${shown} de ${total}`;
+
+      count.textContent = fill(GALLERY.count, lang(), { shown, total });
+      if (empty) empty.hidden = shown > 0;
+
+      // The summary names the one chosen note, because "1 nota seleccionada"
+      // withholds the only thing the reader would want it to say.
+      if (summary) {
+        summary.textContent =
+          chosen.length === 0
+            ? pick(GALLERY.filterNone, lang())
+            : chosen.length === 1
+              ? nameOf(chosen[0])
+              : fill(GALLERY.filterSome, lang(), { n: chosen.length });
+      }
+      if (clear) clear.hidden = chosen.length === 0;
     };
 
     box.addEventListener("input", apply);
-    // A browser may restore the field's value on back-navigation, after the
-    // markup was served with every card visible.
-    if (box.value) apply();
+    for (const check of checks) check.addEventListener("change", apply);
+
+    if (clear) {
+      clear.addEventListener("click", () => {
+        for (const check of checks) check.checked = false;
+        apply();
+      });
+    }
+
+    // A dropdown left open after the reader has moved on is clutter. Closing
+    // on an outside click is the one behaviour `<details>` does not provide.
+    if (details) {
+      document.addEventListener("click", (event) => {
+        if (!details.open) return;
+        if (event.target instanceof Node && details.contains(event.target)) return;
+        details.open = false;
+      });
+    }
+
+    /**
+     * Retranslate what CSS cannot.
+     *
+     * Body text ships once per language and is hidden by `data-lang`. A
+     * placeholder, an `aria-label` and the result count are attributes or
+     * built at runtime, so they are set from the same tables here, on load
+     * and on every switch.
+     */
+    const retranslate = () => {
+      const code = lang();
+      const labels: Record<string, string> = JSON.parse(box.dataset.labels ?? "{}");
+      const label = labels[code] ?? labels[DEFAULT_LANGUAGE] ?? "";
+      box.placeholder = label + "…";
+      box.setAttribute("aria-label", label);
+
+      if (panel) {
+        const panelLabels: Record<string, string> = JSON.parse(
+          panel.dataset.filterPanelLabels ?? "{}",
+        );
+        const panelLabel = panelLabels[code] ?? panelLabels[DEFAULT_LANGUAGE];
+        if (panelLabel) panel.setAttribute("aria-label", panelLabel);
+      }
+
+      apply();
+    };
+
+    document.addEventListener("nia-tero:lang", retranslate);
+    // Runs now as well: the count starts empty in the markup, because a server
+    // -rendered "49 / 49" would be wrong in whichever language was not chosen.
+    retranslate();
   }
 </script>

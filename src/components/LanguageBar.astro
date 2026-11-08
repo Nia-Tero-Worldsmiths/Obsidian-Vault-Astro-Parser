@@ -20,30 +20,33 @@
  * who knows why. On a public site it is a dead end, so an untranslated note
  * shows its default language with the notice below saying so. That needs no
  * markup: shared content sits outside every wrapper, so nothing hides it.
+ *
+ * Labels and notices come from `site.ts`, which reads the served languages out
+ * of `site.json`. This file used to hold its own copy of the label table with
+ * a comment saying it had to be kept in step with `vault.config.yaml` by hand;
+ * a site-authored page needing the same list is what finally paid for doing it
+ * properly.
  */
+import {
+  DEFAULT_LANGUAGE,
+  LANGUAGES,
+  LANGUAGE_PICKER_LABEL,
+  NOTICES,
+  pick,
+} from "../i18n/site";
+
 interface Props {
-  /** Codes this note carries, in configured order. */
+  /**
+   * Codes to offer. A note passes the languages it carries; a site-authored
+   * page passes `LANGUAGE_CODES`, every language the site serves.
+   */
   languages?: string[];
 }
 
 const { languages = [] } = Astro.props;
 
-// Kept in step with `i18n.languages` in vault.config.yaml by hand. There is no
-// generated artifact for it yet: the parser writes per-note codes into
-// frontmatter, not a site-wide list.
-const LABELS: Record<string, string> = {
-  es: "Español",
-  ja: "日本語",
-  en: "English",
-};
-
-// Written in the language being asked for, so the reader who switched can read
-// the reason they did not get what they asked for.
-const NOTICES: Record<string, string> = {
-  es: "Esta nota todavía no está traducida. Se muestra en español.",
-  ja: "このノートはまだ翻訳されていません。スペイン語で表示しています。",
-  en: "This note has not been translated yet. Showing the Spanish original.",
-};
+const labelFor = (code: string) =>
+  LANGUAGES.find((language) => language.code === code)?.label ?? code;
 
 const showBar = languages.length > 1;
 ---
@@ -51,10 +54,18 @@ const showBar = languages.length > 1;
 {
   showBar && (
     <div class="lang-rail">
-      <div class="lang-bar" role="group" aria-label="Idioma de la nota">
+      {/* The group's label is an attribute, so it ships in the default
+          language and the script below retranslates it on each switch. */}
+      <div
+        class="lang-bar"
+        role="group"
+        aria-label={pick(LANGUAGE_PICKER_LABEL, DEFAULT_LANGUAGE)}
+        data-lang-group
+        data-lang-group-labels={JSON.stringify(LANGUAGE_PICKER_LABEL)}
+      >
         {languages.map((code) => (
           <button type="button" class="lang-pill" data-lang-pick={code}>
-            {LABELS[code] ?? code}
+            {labelFor(code)}
           </button>
         ))}
       </div>
@@ -68,7 +79,7 @@ const showBar = languages.length > 1;
   class="lang-fallback"
   role="status"
   hidden
-  data-lang-available={(languages.length > 0 ? languages : ["es"]).join(" ")}
+  data-lang-available={(languages.length > 0 ? languages : [DEFAULT_LANGUAGE]).join(" ")}
   data-lang-notices={JSON.stringify(NOTICES)}
 >
 </p>
@@ -84,6 +95,10 @@ const showBar = languages.length > 1;
   const available = new Set((notice?.dataset.langAvailable ?? "es").split(" "));
   const notices: Record<string, string> = JSON.parse(
     notice?.dataset.langNotices ?? "{}",
+  );
+  const group = document.querySelector<HTMLElement>("[data-lang-group]");
+  const groupLabels: Record<string, string> = JSON.parse(
+    group?.dataset.langGroupLabels ?? "{}",
   );
   const pills = [...document.querySelectorAll<HTMLButtonElement>("[data-lang-pick]")];
 
@@ -103,12 +118,23 @@ const showBar = languages.length > 1;
       pill.setAttribute("aria-pressed", String(active));
     }
 
+    if (group && groupLabels[code]) {
+      group.setAttribute("aria-label", groupLabels[code]);
+    }
+
     // Say so when the reader is looking at a language the note does not have.
     if (notice) {
       const missing = code !== "ALL" && !available.has(code);
       notice.hidden = !missing;
       if (missing) notice.textContent = notices[code] ?? notices.en ?? "";
     }
+
+    // Text in the page switches itself, by CSS. Anything that lives in an
+    // attribute -- a placeholder, an aria-label -- or that is built at
+    // runtime, like the gallery's result count, cannot, so it listens here.
+    document.dispatchEvent(
+      new CustomEvent("nia-tero:lang", { detail: { lang: code } }),
+    );
   }
 
   for (const pill of pills) {

@@ -9,6 +9,8 @@
  */
 import { getCollection } from "astro:content";
 import BaseLayout from "../layouts/BaseLayout.astro";
+import Localized from "../components/Localized.astro";
+import { INDEX, LANGUAGE_CODES } from "../i18n/site";
 
 const collections = ["atlas", "encyclopedia", "prosa"] as const;
 
@@ -24,15 +26,18 @@ const groups = await Promise.all(
 const total = groups.reduce((sum, group) => sum + group.entries.length, 0);
 ---
 
-<BaseLayout title="Nia Tero Exxet">
+{/* The project name is a name, so it is not translated; the sentence under
+    it is. */}
+<BaseLayout title="Nia Tero Exxet" languages={LANGUAGE_CODES}>
   <h1>Nia Tero Exxet</h1>
-  <p>{total} notas publicadas desde el vault.</p>
+  <Localized tag="p" text={INDEX.intro} values={{ n: total }} />
 
   {
     groups.map((group) => (
       <section>
         <h2>
-          {group.name} <small>({group.entries.length})</small>
+          <Localized text={INDEX.collections[group.name]} />{" "}
+          <small>({group.entries.length})</small>
         </h2>
         <ul>
           {group.entries.map((entry) => (
@@ -51,7 +56,6 @@ const total = groups.reduce((sum, group) => sum + group.entries.length, 0);
 
 <style>
   h2 {
-    text-transform: capitalize;
     margin-top: 2rem;
   }
 

@@ -183,3 +183,9 @@ modules:
     # this is a catalogue of the project's own artwork.
     origins: [original, licensed]
   graph: { enabled: true }
+  # Writes the site's served languages (`i18n.languages` minus `i18n.ignore`)
+  # as site.json. The three site-authored pages -- `/`, `/galeria`, `/grafo` --
+  # have no note to read their languages from, and this is what stops the
+  # language bar keeping a hand-synced copy of the same list. Disabled, those
+  # pages fall back to the default language alone.
+  site_index: { enabled: true }

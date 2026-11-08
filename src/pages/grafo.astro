@@ -4,10 +4,15 @@
  *
  * The sidebar widget on every page links here. Both render the same
  * `src/generated/graph.json`; only the interaction differs.
+ *
+ * A site-authored page, so its words come from `src/i18n/site.ts` rather than
+ * from a note, and it offers every language the site serves.
  */
 import { getCollection } from "astro:content";
 import BaseLayout from "../layouts/BaseLayout.astro";
 import GraphView from "../components/GraphView.astro";
+import Localized from "../components/Localized.astro";
+import { GRAPH, LANGUAGE_CODES, DEFAULT_LANGUAGE, pick } from "../i18n/site";
 
 const collections = ["atlas", "encyclopedia", "prosa"] as const;
 const total = (
@@ -15,12 +20,12 @@ const total = (
 ).flat().length;
 ---
 
-<BaseLayout title="Grafo">
-  <h1>Grafo</h1>
-  <p>
-    Conexiones entre las {total} notas publicadas. Los colores siguen los grupos
-    definidos en el vault. Arrastra un nodo para moverlo, la rueda para acercar.
-  </p>
+{/* `<title>` stays in the default language, as it does on every note: a note
+    has one title, not one per language, so a site page that retitled its own
+    tab would be the only thing on the site that did. */}
+<BaseLayout title={pick(GRAPH.heading, DEFAULT_LANGUAGE)} languages={LANGUAGE_CODES}>
+  <h1><Localized text={GRAPH.heading} /></h1>
+  <Localized tag="p" text={GRAPH.intro} values={{ n: total }} />
 
   <GraphView compact={false} />
 </BaseLayout>

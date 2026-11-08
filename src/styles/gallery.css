@@ -202,3 +202,168 @@
 .gallery-usage.is-standin {
   color: var(--text-faint, #b9aba0);
 }
+
+/* ── The filter row ──────────────────────────────────────────────────────── */
+
+/* Search and the note filter sit side by side, and stack under each other
+ * once there is no room for both. The search takes the slack because its
+ * content is open-ended, while the dropdown's width is its longest note
+ * title. */
+.gallery-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin: 0 0 0.5rem;
+}
+
+.gallery-search-field {
+  flex: 1 1 16rem;
+  min-width: 0;
+}
+
+/* The search input's own bottom margin would push the dropdown out of line. */
+.gallery-search-field .gallery-search {
+  margin-bottom: 0;
+}
+
+/* `position: relative` is what the panel below is absolute against, so the
+ * list floats over the grid instead of pushing 49 cards down the page. */
+.gallery-filter {
+  position: relative;
+  flex: 0 1 auto;
+}
+
+/* Shaped like the search box, so the two read as one row of controls. */
+.gallery-filter-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid var(--background-modifier-border, #d8ccbc);
+  border-radius: var(--radius-s, 4px);
+  background: var(--background-modifier-form-field, var(--background-primary, #fff));
+  color: var(--text-normal, #1a1a1a);
+  font-size: 0.95rem;
+  white-space: nowrap;
+  cursor: pointer;
+  /* The UA marker is replaced by the caret below, which can be rotated. */
+  list-style: none;
+}
+
+.gallery-filter-summary::-webkit-details-marker {
+  display: none;
+}
+
+.gallery-filter-summary::after {
+  content: "";
+  width: 0.4rem;
+  height: 0.4rem;
+  margin-left: 0.15rem;
+  border-right: 1.5px solid currentcolor;
+  border-bottom: 1.5px solid currentcolor;
+  transform: translateY(-2px) rotate(45deg);
+}
+
+.gallery-filter[open] > .gallery-filter-summary::after {
+  transform: translateY(2px) rotate(225deg);
+}
+
+.gallery-filter-summary:focus-visible {
+  outline: 2px solid var(--text-accent, #d63636);
+  outline-offset: 1px;
+}
+
+.gallery-filter-panel {
+  position: absolute;
+  z-index: 5;
+  top: calc(100% + 0.25rem);
+  /* Right-aligned: the control sits at the end of the row, and a panel wider
+   * than its button would otherwise run off the page on a narrow screen. */
+  right: 0;
+  /* Sized to the longest note title rather than to the button, which is only
+   * as wide as "Todas las notas" and wrapped every second name onto two
+   * lines. The cap still applies, so a title longer than that wraps -- better
+   * than an ellipsis, which would hide the part that tells two characters of
+   * the same family apart. */
+  width: max-content;
+  min-width: 100%;
+  max-width: min(22rem, calc(100vw - 2rem));
+  /* Thirteen notes fit; the list is expected to grow with every character who
+   * gets artwork, so it scrolls rather than running off the viewport. */
+  max-height: min(60vh, 24rem);
+  padding: 0.35rem;
+  border: 1px solid var(--background-modifier-border, #d8ccbc);
+  border-radius: var(--radius-s, 4px);
+  background: var(--background-primary, #fff);
+  box-shadow: 0 6px 20px rgb(0 0 0 / 12%);
+  overflow-y: auto;
+}
+
+.gallery-filter-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0.4rem;
+  border-radius: var(--radius-s, 4px);
+  font-size: 0.9rem;
+  line-height: 1.3;
+  cursor: pointer;
+}
+
+.gallery-filter-option:hover {
+  background: var(--background-modifier-hover, rgb(0 0 0 / 5%));
+}
+
+.gallery-filter-option input {
+  flex: none;
+  margin: 0;
+  accent-color: var(--text-accent, #d63636);
+}
+
+/* Takes the slack so every count lines up at the right edge. */
+.gallery-filter-name {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.gallery-filter-count {
+  flex: none;
+  color: var(--text-muted, #6b6862);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Separates the notes from the two entries that are not notes. */
+.gallery-filter-rule {
+  margin: 0.35rem 0.4rem;
+  border: 0;
+  border-top: 1px solid var(--background-modifier-border, #d8ccbc);
+}
+
+.gallery-filter-clear {
+  display: block;
+  width: 100%;
+  margin-top: 0.25rem;
+  padding: 0.35rem;
+  border: 0;
+  border-radius: var(--radius-s, 4px);
+  background: var(--background-modifier-hover, rgb(0 0 0 / 5%));
+  color: var(--text-muted, #6b6862);
+  font-family: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.gallery-filter-clear:hover {
+  color: var(--text-normal, #1a1a1a);
+}
+
+/* Shown in place of the grid when the filters match nothing. Without it the
+ * page would answer a filter with a silent empty space. */
+.gallery-empty {
+  margin: 1.5rem 0;
+  color: var(--text-muted, #6b6862);
+  font-style: italic;
+  text-align: center;
+}

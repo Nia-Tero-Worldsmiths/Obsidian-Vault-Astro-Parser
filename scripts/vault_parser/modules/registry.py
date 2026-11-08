@@ -40,6 +40,7 @@ from .empty_headings import EmptyHeadingsModule
 from .image_licensing import ImageLicensingModule
 from .gallery_index import GalleryIndexModule
 from .graph import GraphModule
+from .site_index import SiteIndexModule
 from .i18n_infobox import I18nInfoboxModule
 from .i18n_query import I18nQueryModule
 from .i18n_gallery import I18nGalleryModule
@@ -62,6 +63,7 @@ _MODULE_CLASSES: tuple[type[TransformModule], ...] = (
     ImageLicensingModule,
     GalleryIndexModule,
     GraphModule,
+    SiteIndexModule,
 )
 
 
