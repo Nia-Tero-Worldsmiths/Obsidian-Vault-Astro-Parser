@@ -32,10 +32,20 @@ import "../styles/vault-theme.css";
 // Everything that has to beat the theme. Loads last -- the opposite role to
 // base.css, and the reason the two are separate files.
 import "../styles/site-overrides.css";
+// The site inside somebody else's frame. Every rule is prefixed with
+// `html[data-embed=...]`, so it is inert on a normal visit and does not depend
+// on being loaded after the sheet above -- which it could not, since this
+// file's own `<style is:global>` block is bundled separately from these
+// imports.
+import "../styles/embed.css";
 
 import ImageGallery from "../components/ImageGallery.astro";
 import Lightbox from "../components/Lightbox.astro";
 import LanguageBar from "../components/LanguageBar.astro";
+import EmbedMode from "../components/EmbedMode.astro";
+// The codes this build actually serves, for the inline script below to
+// validate `?lang=` against.
+import { LANGUAGE_CODES } from "../i18n/site";
 
 interface Props {
   title: string;
@@ -71,21 +81,56 @@ const navTree = Object.values(generated)[0] ?? { children: [] };
 
 <html lang="es" data-lang="es">
   <head>
-    <!-- Applies the reader's stored language before first paint.
+    <!-- Applies the reader's language, and embed mode, before first paint.
          This has to be inline and blocking: the page ships every
          language at once and CSS hides the others, so a deferred script
          would let Spanish flash on screen for a reader who chose
-         Japanese. It also fixes `<html lang>` for screen readers. -->
-    <script is:inline>
-      try {
-        var stored = localStorage.getItem("nia-tero-lang");
-        if (stored) {
-          document.documentElement.setAttribute("data-lang", stored);
-          if (stored !== "ALL") document.documentElement.lang = stored;
+         Japanese. It also fixes `<html lang>` for screen readers.
+         Embed mode rides along for exactly the same reason -- it hides
+         the sidebar, and a deferred script would show the chrome and
+         then snatch it away. -->
+    <script is:inline define:vars={{ served: LANGUAGE_CODES }}>
+      (function () {
+        var root = document.documentElement;
+        var params = new URLSearchParams(location.search);
+
+        /* Embed mode. Two named modes and nothing else: an unknown value
+           leaves the site as it is rather than half-hiding it. See
+           `embed.css` and `EmbedMode.astro` for what each one means. */
+        var embed = params.get("embed");
+        if (embed === "journal" || embed === "browser") {
+          root.setAttribute("data-embed", embed);
         }
-      } catch (e) {
-        /* storage disabled; the default language stands */
-      }
+
+        /* `?lang=` outranks the stored preference, and that order is the
+           point of it. Inside a cross-origin frame `localStorage` is
+           partitioned per embedding site, and in Safari and strict-mode
+           Firefox it is not available at all -- so an embedder cannot rely
+           on a reader's choice surviving, and has no way to set it. The
+           address is the one channel it does control.
+
+           Validated against the languages this build actually serves:
+           an unknown code would hide every `lang-section` and leave the
+           note blank, which is a worse failure than ignoring a typo.
+           `ALL` is the parser's own show-everything sentinel, kept
+           available for debugging the way `LanguageBar` documents. */
+        var asked = params.get("lang");
+        var stored = null;
+        try {
+          stored = localStorage.getItem("nia-tero-lang");
+        } catch (e) {
+          /* storage disabled; the default language stands */
+        }
+
+        var wanted = asked && (served.indexOf(asked) !== -1 || asked === "ALL")
+          ? asked
+          : stored;
+
+        if (wanted) {
+          root.setAttribute("data-lang", wanted);
+          if (wanted !== "ALL") root.lang = wanted;
+        }
+      })();
     </script>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -160,6 +205,13 @@ const navTree = Object.values(generated)[0] ?? { children: [] };
     {/* Claims every picture in `main` except maps, which pan and zoom where
         they sit. Renders no markup; the dialog is built on first use. */}
     <Lightbox />
+
+    {/* Link behaviour for `?embed=`. Renders nothing and does nothing unless
+        the inline script above set `data-embed`. Mount order is immaterial:
+        it listens on the bubble at `document`, which runs after every
+        capturing listener further in -- `ZoomMap`'s drag suppression above
+        among them, which is the reason it is written that way. */}
+    <EmbedMode />
 
     <script>
       // Expand/collapse the whole navigation tree.

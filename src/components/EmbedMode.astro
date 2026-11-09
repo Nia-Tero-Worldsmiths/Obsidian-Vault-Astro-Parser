@@ -1,0 +1,140 @@
+---
+/**
+ * Link behaviour when the site is inside somebody else's frame.
+ *
+ * Renders nothing, like `ZoomMap` and `Lightbox`: the markup it acts on is the
+ * page itself. `BaseLayout` mounts it unconditionally and it is inert unless
+ * `?embed=` put `data-embed` on `<html>`.
+ *
+ * Two jobs, and they are not the same job in the two modes:
+ *
+ *   both modes      An external link opens in a new tab. A frame has nowhere
+ *                   good to put another site -- it is too small to read, and a
+ *                   reader who lands there has no address bar and no way back.
+ *
+ *   journal only    An internal link does not navigate at all. It is announced
+ *                   to the embedder with `postMessage` and the embedder decides
+ *                   what to open. The frame is showing one note on purpose and
+ *                   must still be showing that note the next time it is looked
+ *                   at; letting it wander is the one thing a single-note embed
+ *                   cannot allow.
+ *
+ * In `browser` mode internal links are left entirely alone. That mode exists to
+ * be navigated.
+ *
+ * ## Why this listens on the bubble, and not where you would expect
+ *
+ * The obvious implementation is a *capturing* listener on `window`, which sees
+ * every click before anything else can. It is also wrong here, and subtly so.
+ *
+ * `ZoomMap` suppresses the click that a browser fires after a drag, so that
+ * panning a map does not also follow whichever pin the pointer happened to
+ * stop over. It does that with a capturing listener on the map's viewport and
+ * a flag private to its own closure. Capture runs outside-in, so a listener on
+ * `window` would see that click *first*, post it to the embedder, and open a
+ * note the reader never asked for -- and `ZoomMap` would have no way to say
+ * otherwise, because by then the message is gone.
+ *
+ * Listening on the bubble instead inverts the order for free. `ZoomMap` calls
+ * `stopPropagation()` on a suppressed click while the event is still heading
+ * down to the pin, so a bubble-phase listener on `document` never runs at all.
+ * No flag has to be shared, no module has to know about any other, and
+ * `ZoomMap` needs no changes. The `defaultPrevented` check below covers the
+ * same ground for anything else that decides to swallow a click later.
+ */
+---
+
+<script>
+  const root = document.documentElement;
+  const mode = root.dataset.embed;
+
+  if (mode === "journal" || mode === "browser") {
+    /* Bubble phase, on `document` -- see the note above; this is the whole
+       reason the component is written the way it is. */
+    document.addEventListener("click", (event) => {
+      /* Something closer to the target already dealt with this: a map drag
+         that ended on a pin, a gallery tab, a lightbox trigger. Not ours. */
+      if (event.defaultPrevented) return;
+
+      /* Modifier and secondary clicks are left to the browser. In a frame that
+         means a real new tab on the real site, which is the only escape hatch
+         a reader has from an embed -- worth keeping, and nobody reaches for
+         ctrl+click by accident. */
+      if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+        return;
+      }
+
+      const target = event.target;
+      const link = target instanceof Element ? target.closest("a[href]") : null;
+      if (!(link instanceof HTMLAnchorElement)) return;
+
+      const url = new URL(link.href, location.href);
+
+      /* Compared against the origin parsed out of this document's own address,
+         NOT against `location.origin`.
+         They are usually the same string and in a frame they may not be: an
+         embedder that sandboxes without `allow-same-origin` gives the document
+         an opaque origin, and `location.origin` is then the literal `"null"`.
+         Every internal link would read as external and open in a new tab --
+         the one thing this mode exists to prevent. Parsing `location.href` is
+         pure string work and says what the address actually is either way. */
+      if (url.origin !== new URL(location.href).origin) {
+        /* Not intercepted, redirected: the click still does what the reader
+           expects, just not in here. Set on the element rather than handled
+           with `window.open`, so a popup blocker treats it as the navigation
+           it is. `noopener` because the new tab has no business reaching back
+           into a frame it was opened from. */
+        link.target = "_blank";
+        link.rel = link.rel ? `${link.rel} noopener` : "noopener";
+        return;
+      }
+
+      /* `browser` mode stops here: internal navigation is the feature. */
+      if (mode !== "journal") return;
+
+      /* A link to a spot on this same page is not navigation, and the whole
+         point of the mode is that the frame stays on this note -- which it
+         does. Let the anchor work. */
+      if (url.pathname === location.pathname && url.hash) return;
+
+      event.preventDefault();
+
+      /* The last path segment is the slug, the same identity the published
+         index keys on -- that is what makes the embedder able to resolve it to
+         whatever it created for that note. `path` rides along for the few
+         internal destinations that are not notes at all (`/`, `/galeria`,
+         `/grafo`), which an embedder will want to handle differently rather
+         than look up and fail to find. */
+      const path = url.pathname.replace(/^\/+|\/+$/g, "");
+      const slug = path.split("/").pop() ?? "";
+
+      /* Target origin `*`.
+         The payload is a slug from a public site, so there is nothing here to
+         leak to a frame parent that is not already reading the page it is
+         framing. The guarantee that matters runs the other way, and it is the
+         embedder's to make: it validates `event.origin` against the site it
+         framed and `event.source` against its own frames before acting.
+
+         Worth knowing on that side: `event.origin` is only this site's origin
+         if the frame was given `allow-same-origin`. Sandbox it without, and
+         the origin arrives as the literal `"null"` and an embedder checking
+         for the real one will reject every message it was waiting for. */
+      parent.postMessage({ type: "nia-open", slug, path }, "*");
+    });
+
+    /* Told, not asked: the embed says which note it ended up on and in which
+       language. An embedder that rebuilds the frame's address on every open --
+       which is how a single-note embed stays on its note -- can check that the
+       frame agrees, instead of trusting that it does. */
+    parent.postMessage(
+      {
+        type: "nia-ready",
+        mode,
+        slug: location.pathname.replace(/^\/+|\/+$/g, "").split("/").pop() ?? "",
+        path: location.pathname.replace(/^\/+|\/+$/g, ""),
+        lang: root.getAttribute("data-lang") ?? "",
+      },
+      "*",
+    );
+  }
+</script>

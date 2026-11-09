@@ -1,0 +1,114 @@
+/* Embed mode: the site inside somebody else's window.
+ *
+ * Reached with `?embed=journal` or `?embed=browser`, which the inline script
+ * in `BaseLayout.astro` turns into `data-embed` on `<html>` before first paint
+ * -- early enough that the chrome never flashes into view and back out.
+ *
+ * Two modes, because an embedder wants two different things:
+ *
+ *   journal   One note, no navigation. The embedder supplies the address and
+ *             forbids moving off it, so the sidebar, the tree and the
+ *             breadcrumb are all dead weight. Written for a Foundry VTT
+ *             journal page, which has its own window furniture around this.
+ *
+ *   browser   The whole site in a frame. Chrome kept, tree kept, navigation
+ *             free -- an embedded reading window rather than a single note.
+ *             Needs almost nothing from this file, which is the point: it is
+ *             the site, just not at the top of the window.
+ *
+ * Loaded last of the stylesheets, after `site-overrides.css`, but every rule
+ * is still prefixed with `html[data-embed=...]`. Order alone would not be
+ * enough: `BaseLayout`'s own `<style is:global>` block is bundled separately
+ * from these imports, so the attribute carries the specificity that settles
+ * it no matter which sheet lands first.
+ *
+ * Nothing here is a `display: none` on anything load-bearing. The reason is
+ * spelled out at the footer rule, and it is a licensing one. */
+
+/* ------------------------------------------------------------------ *
+ * journal -- one note, no way out
+ * ------------------------------------------------------------------ */
+
+/* One column. The sidebar is gone, and the language rail follows the article
+ * rather than standing beside it: a journal pane is narrower than any desktop
+ * reading column, so a third column would squeeze the prose for the sake of
+ * two pills. This mirrors what the `60rem` breakpoint already does, and for
+ * the same reason. */
+html[data-embed="journal"] .app {
+  grid-template-columns: minmax(0, 1fr);
+  /* Tighter than the site's `2rem 1.5rem 4rem`: the embedder's own window
+     supplies the outer margin, and paying for it twice wastes a pane that is
+     short to begin with. */
+  padding: 0.75rem 0.5rem 1.5rem;
+  row-gap: 1.25rem;
+}
+
+html[data-embed="journal"] .sidebar {
+  display: none;
+}
+
+/* The embedder knows where the note sits -- it placed it in its own tree -- so
+ * the breadcrumb repeats what is already on screen. The information is not
+ * lost: it is still in the index the embedder read. */
+html[data-embed="journal"] .breadcrumb {
+  display: none;
+}
+
+/* The rail keeps its pills but stops being sticky: in one column there is
+ * nothing for it to stick beside, and a floating bar over the prose in a short
+ * pane is worse than one that scrolls with it. */
+html[data-embed="journal"] .lang-rail {
+  position: static;
+}
+
+html[data-embed="journal"] .lang-rail .lang-bar {
+  flex-direction: row;
+  align-items: center;
+  /* Undoes the reach-back the vertical rail uses to close the gap to the
+     reading column's padding; in the flow it would just sit crooked. */
+  margin: 0;
+}
+
+/* The article's `<h1>` stays.
+ *
+ * It looks like duplication -- the embedder shows the note's name in its own
+ * header -- and it is not. That heading is the only place a note's *translated*
+ * title appears: the parser emits one `span.lang-title` per language and CSS
+ * reveals the active one, while the embedder only ever knew the Spanish title
+ * from the index. Hiding it would leave a Japanese reader on a page titled in
+ * Spanish. */
+
+/* Parchment edges, scaled down. Seven rem of gradient on each side of a
+ * ~30rem pane is not an edge, it is a vignette over the whole note. */
+html[data-embed="journal"] body {
+  --parchment-edge-width: 2rem;
+}
+
+/* ------------------------------------------------------------------ *
+ * Both modes
+ * ------------------------------------------------------------------ */
+
+/* The footer is NOT hidden, in either mode, and this is deliberate.
+ *
+ * The site's text is CC BY-SA 4.0, and that licence requires attribution
+ * wherever the work is shown. An embed is a place the work is shown. Stripping
+ * the notice to tidy up the pane would make the embed non-compliant, which is
+ * a worse outcome than a few lines of small print -- and the notice is also
+ * the only thing telling a reader that the illustrations are *not* under that
+ * licence.
+ *
+ * So it stays, quieter: smaller, muted, and without the badge row, which is
+ * decoration rather than attribution. */
+html[data-embed] .site-footer {
+  font-size: 0.72rem;
+  padding: 0.75rem 1rem 1rem;
+  opacity: 0.75;
+}
+
+html[data-embed] .site-footer .license-badge {
+  display: none;
+}
+
+html[data-embed="journal"] .site-footer p + p {
+  margin-top: 0.25rem;
+}
