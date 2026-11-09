@@ -84,6 +84,37 @@ html[data-embed="journal"] body {
   --parchment-edge-width: 2rem;
 }
 
+/* Give the infobox its float back.
+ *
+ * `site-overrides.css` un-floats it below 60rem, and that threshold is right
+ * for the site: at that width the sidebar and a 300px float together leave the
+ * prose a few words per line, which `text-align: justify` then stretches into
+ * gaps.
+ *
+ * In journal mode there is no sidebar. The content column has the whole frame,
+ * so it reaches any given width about 19rem of viewport earlier than the
+ * site's layout assumes -- 17rem of sidebar plus its 2.5rem gutter. The 60rem
+ * threshold is therefore measuring a column that is not there, and an 860px
+ * journal window -- which has more room for prose than the site itself does at
+ * 1000px -- gets the stacked mobile layout instead: the infobox alone at the
+ * top, every paragraph below it.
+ *
+ * So: the same rule, from the width at which the *prose* is as wide as the
+ * site would have made it. 60rem minus the sidebar it no longer pays for.
+ *
+ * `!important` because the declaration being corrected has it, and nothing
+ * else beats that -- specificity alone cannot. This selector carries more
+ * specificity, which is what settles it between two `!important` rules. Only
+ * `float` and its margin are restated: the width the narrow rule also sets is
+ * already overridden by the plugin infobox's own styles, so repeating it here
+ * would be guessing at a cascade that is already settled. */
+@media (min-width: 41rem) {
+  html[data-embed="journal"] .callout[data-callout~="infobox"] {
+    float: right !important;
+    margin-inline: 5px 0 !important;
+  }
+}
+
 /* ------------------------------------------------------------------ *
  * Both modes
  * ------------------------------------------------------------------ */
