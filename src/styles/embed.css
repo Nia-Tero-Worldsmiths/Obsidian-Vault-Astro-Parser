@@ -54,19 +54,27 @@ html[data-embed="journal"] .breadcrumb {
   display: none;
 }
 
-/* The rail keeps its pills but stops being sticky: in one column there is
- * nothing for it to stick beside, and a floating bar over the prose in a short
- * pane is worse than one that scrolls with it. */
+/* The rail is hidden in an embed, and the embedder offers the choice itself.
+ *
+ * It was kept at first, laid flat into the flow. That was wrong: the rail is
+ * built for a page with room beside the text, so in a frame it either sits in
+ * a margin the embed does not show or collapses into a clipped row of pills.
+ * A control the reader can see but not use is worse than none.
+ *
+ * Nothing is lost, because `?lang=` is how an embedder asks for a language and
+ * it does not depend on the rail existing. The Foundry module puts the choice
+ * in its own toolbar, where it belongs: the window is the thing the reader is
+ * actually looking at. Any other embedder can do the same.
+ *
+ * Journal mode only. `browser` mode frames the site at the size the site was
+ * designed for, with its sidebar and its own navigation, so its language bar
+ * works there and is the right control to use -- the embedder stays out of it
+ * and sends no `lang` at all.
+ *
+ * This does not fix the rail's own layout on the site proper -- that is a
+ * separate bug and a separate change. */
 html[data-embed="journal"] .lang-rail {
-  position: static;
-}
-
-html[data-embed="journal"] .lang-rail .lang-bar {
-  flex-direction: row;
-  align-items: center;
-  /* Undoes the reach-back the vertical rail uses to close the gap to the
-     reading column's padding; in the flow it would just sit crooked. */
-  margin: 0;
+  display: none;
 }
 
 /* The article's `<h1>` stays.
