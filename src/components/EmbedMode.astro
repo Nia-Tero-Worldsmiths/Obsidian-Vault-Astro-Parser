@@ -100,13 +100,27 @@
         return;
       }
 
-      /* `browser` mode stops here: internal navigation is the feature. */
-      if (mode !== "journal") return;
-
-      /* A link to a spot on this same page is not navigation, and the whole
-         point of the mode is that the frame stays on this note -- which it
-         does. Let the anchor work. */
+      /* A link to a spot on this same page is not navigation. In `journal`
+         mode the frame stays on its note, which is the point; in `browser`
+         mode rewriting it would turn a hash jump into a page load. Either
+         way, let the anchor work. */
       if (url.pathname === location.pathname && url.hash) return;
+
+      /* `browser` mode navigates for real -- but the mode lives in the query
+         string and an ordinary link carries none, so the page it lands on is
+         not an embed at all: no `data-embed`, this script inert, and not a
+         single message back to the embedder from there on. The first page
+         behaves and every page after it goes quiet, which looks from the
+         outside exactly like a dead listener.
+         So the contract is carried along. It stays in the URL, where it can
+         be seen, rather than in storage a partitioned frame may not keep. */
+      if (mode !== "journal") {
+        const next = new URL(url.href);
+        next.searchParams.set("embed", mode);
+        if (nonce) next.searchParams.set("nia", nonce);
+        link.href = next.href;
+        return;
+      }
 
       event.preventDefault();
 
