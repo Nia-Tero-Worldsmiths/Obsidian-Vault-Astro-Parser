@@ -48,6 +48,17 @@
   const root = document.documentElement;
   const mode = root.dataset.embed;
 
+  /* The embedder's own name for this frame, echoed back in every message.
+   *
+   * An embedder has to prove a message came from a frame it made, and the
+   * only thing it can otherwise compare is `event.source` against an
+   * `iframe.contentWindow` -- a `WindowProxy` identity check, which is exact
+   * when it works and silent when it does not. Handing the frame a token in
+   * its own address and getting it back turns that into an equality test on a
+   * string the embedder chose. Nothing secret rides on it: it is a name, and
+   * the embedder still checks the origin. */
+  const nonce = new URL(location.href).searchParams.get("nia") ?? "";
+
   if (mode === "journal" || mode === "browser") {
     /* Bubble phase, on `document` -- see the note above; this is the whole
        reason the component is written the way it is. */
@@ -119,7 +130,7 @@
          if the frame was given `allow-same-origin`. Sandbox it without, and
          the origin arrives as the literal `"null"` and an embedder checking
          for the real one will reject every message it was waiting for. */
-      parent.postMessage({ type: "nia-open", slug, path }, "*");
+      parent.postMessage({ type: "nia-open", slug, path, nonce }, "*");
     });
 
     /* Told, not asked: the embed says which note it ended up on and in which
@@ -130,6 +141,7 @@
       {
         type: "nia-ready",
         mode,
+        nonce,
         slug: location.pathname.replace(/^\/+|\/+$/g, "").split("/").pop() ?? "",
         path: location.pathname.replace(/^\/+|\/+$/g, ""),
         lang: root.getAttribute("data-lang") ?? "",
