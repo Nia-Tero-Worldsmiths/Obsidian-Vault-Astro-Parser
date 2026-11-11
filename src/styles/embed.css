@@ -39,8 +39,13 @@ html[data-embed="journal"] .app {
   /* Tighter than the site's `2rem 1.5rem 4rem`: the embedder's own window
      supplies the outer margin, and paying for it twice wastes a pane that is
      short to begin with. */
-  padding: 0.75rem 0.5rem 1.5rem;
-  row-gap: 1.25rem;
+  padding: 0.25rem 0.5rem 1.5rem;
+  /* Nothing left in this column has a neighbour to be separated from: the
+     sidebar, the breadcrumb and the language rail are all gone by now, and
+     the grid's other rows measure zero. The gaps above them do not, though --
+     two of them, 20px each, sat above the note and looked exactly like
+     padding. */
+  row-gap: 0;
 }
 
 html[data-embed="journal"] .sidebar {
@@ -77,14 +82,46 @@ html[data-embed="journal"] .lang-rail {
   display: none;
 }
 
-/* The article's `<h1>` stays.
+/* The article's `<h1>` goes.
  *
- * It looks like duplication -- the embedder shows the note's name in its own
- * header -- and it is not. That heading is the only place a note's *translated*
- * title appears: the parser emits one `span.lang-title` per language and CSS
- * reveals the active one, while the embedder only ever knew the Spanish title
- * from the index. Hiding it would leave a Japanese reader on a page titled in
- * Spanish. */
+ * Every place this mode is actually used names the note already, in its own
+ * furniture: an Augur Nexus place window with the place's name on it, a
+ * character sheet with the character's name across the top, a Foundry journal
+ * window titled after the entry. The heading repeats that in 34px and, with
+ * its margins, costs a fifth of a short pane before the first word.
+ *
+ * This file used to argue the other way, and the argument was not wrong: that
+ * heading is the only place a note's *translated* title appears, since the
+ * parser emits one `span.lang-title` per language while an embedder only ever
+ * knew the Spanish title from the index. So a Japanese reader now has the
+ * Spanish name above the pane and no Japanese one inside it. That is the cost,
+ * it falls on the bilingual notes, and it is worth less than the space.
+ *
+ * Only the title. A heading inside a note's own prose is content and stays. */
+html[data-embed="journal"] article > h1:first-child {
+  display: none;
+}
+
+/* And the space it was sitting in.
+ *
+ * The reading column carries `--file-margins` -- 2rem on every side, which is
+ * right for a page with a browser window around it and too much for a pane
+ * that is already short. Only the top is taken back: the sides carry the
+ * parchment edge and the infobox float, and the bottom is where the footer
+ * needs air.
+ *
+ * Journal mode only, like everything above it. Browser mode is the site at the
+ * size the site was designed for, and the heading is how a reader navigating
+ * it knows what they have arrived at. */
+html[data-embed="journal"] .markdown-preview-view {
+  padding-top: 0.5rem;
+}
+
+/* Whatever now comes first has a top margin meant to separate it from the
+ * heading above, which is no longer there to be separated from. */
+html[data-embed="journal"] article > h1:first-child + * {
+  margin-top: 0;
+}
 
 /* Parchment edges, scaled down. Seven rem of gradient on each side of a
  * ~30rem pane is not an edge, it is a vignette over the whole note. */
