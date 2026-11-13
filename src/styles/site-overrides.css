@@ -143,18 +143,123 @@ a.tag {
   height: auto;
 }
 
-/* Narrow viewports: stop the infobox floating. The theme gives it a fixed
- * 300px floated right, which is correct in a desktop pane; in a narrow column
- * the prose is squeezed to a few words per line, and `text-align: justify` from
- * custom.css then stretches them across the gap. Obsidian handles this with
- * `.is-mobile` rules, which are editor-only and filtered out of the extract.
- * Threshold matches the sidebar breakpoint in BaseLayout. */
-@media (max-width: 60rem) {
-  .callout[data-callout~="infobox"] {
+/* The floated infobox, a little wider than the theme's 300px.
+ *
+ * `BaseLayout` works out how much and why -- the short version is that the
+ * label column cannot hold "Lugar de nacimiento" on one line at 300px, and
+ * that the content column grows by the same amount so the prose beside the
+ * box keeps its measure. All this rule does is read the answer.
+ *
+ * Deliberately *above* the narrow block below, which lifts `max-width`
+ * entirely for the stacked layout: the two are the same property at the same
+ * specificity, so the one that applies to the narrower window has to come
+ * second to win there. */
+.callout.callout[data-callout~="infobox"] {
+  max-width: var(--infobox-max-width, 300px);
+}
+
+/* The label column, told once more not to wrap -- this time where it counts.
+ *
+ * `.ml-infobox-label { white-space: nowrap }` is stated further down this
+ * file and has never had any effect: the theme has `white-space: pre-wrap`
+ * on `.callout.callout[data-callout~=infobox] table td`, three classes and
+ * two attributes of specificity against that rule's one class. So every
+ * label has been free to wrap, and the column it sits in settled at 125px --
+ * while "Fecha de nacimiento" wants 172px and got two lines instead.
+ *
+ * Widening the box alone does not fix it. With `table-layout: auto` the
+ * extra width is shared between the columns, and the label column creeps up
+ * by about a fifth of it: measured, 125px at a 300px box and 143px at a
+ * 400px one, with the label still wrapping at every step. What fixes it is
+ * telling the column it may not wrap, at which point it takes its
+ * max-content width and holds it, and the box only has to be wide enough to
+ * leave the values their room. */
+.callout.callout[data-callout~="infobox"] table td.ml-infobox-label {
+  white-space: nowrap;
+}
+
+/* Narrow viewports: stop the infobox floating, and give it the whole column.
+ *
+ * The theme gives it a fixed 300px floated right, which is correct in a
+ * desktop pane; in a narrow column the prose is squeezed to a few words per
+ * line, and `text-align: justify` from custom.css then stretches them across
+ * the gap. Obsidian handles this with `.is-mobile` rules, which are
+ * editor-only and filtered out of the extract.
+ *
+ * ── 46rem, which is not the layout's threshold ──
+ * It used to be: the box stopped floating at the same 60rem where the
+ * sidebar collapsed, as though the two were one question. They are not. The
+ * float is about how much room is left *beside* the box, and the sidebar
+ * standing aside hands the column 383px -- so a window that cannot afford a
+ * float with a sidebar can easily afford one without. Giving up at the same
+ * line threw that away: at 59rem the box went flat across a column wide
+ * enough to have wrapped text around it for another 14rem.
+ *
+ * So it holds on down to here, which is where the prose beside it finally
+ * runs out: 304px at 46rem, against 145px at the old arrangement's worst
+ * point. Below this the window really has nothing to spare and the box
+ * takes the column, which is what a phone wants anyway.
+ *
+ * `embed.css` asks the same question of a journal pane and answers 41rem:
+ * that pane spends less on its own margins, and is read in a window the
+ * embedder has already chosen. Two numbers, one rule -- float for as long
+ * as the text beside it still reads.
+ *
+ * `.callout.callout` is the load-bearing part, and this rule did not have it.
+ * The theme's own infobox block is `.callout.callout[data-callout~=infobox]`
+ * -- a doubled class, specificity 0-3-1 -- so of the four declarations below
+ * only the two carrying `!important` were ever winning. `max-width` and the
+ * margin lost silently to the theme, and the "26rem, centred" this used to
+ * ask for never once appeared on screen: measured at 760px, the box was
+ * 300px wide sitting 5px from the left margin. Matching the doubled class
+ * ties the specificity, and this sheet loads after the theme, which settles
+ * it. */
+@media (max-width: 45.99rem) {
+  .callout.callout[data-callout~="infobox"] {
     float: none !important;
     width: auto !important;
-    max-width: 26rem;
-    margin-inline: auto;
+    max-width: none;
+    /* The theme sets `--callout-margin: 0 0 0 5px` on a one-higher selector,
+       so the custom property cannot be taken from under it -- the margin has
+       to be set outright. Inline only: the block margins are the theme's to
+       decide and the stacked box still wants air beneath it, which the rule
+       below gives it. */
+    margin-inline: 0;
+    margin-block-end: 1.25rem;
+  }
+
+  /* Flat across the column is exactly the case the portrait needs a ceiling
+     for, so the two live together: the rule that creates the problem turns on
+     the variable that bounds it. See the declaration further down for what it
+     does and why it is not a length in the rule itself. */
+  :root {
+    --ml-infobox-portrait-max-height: 60vh;
+  }
+
+  /* And the portrait sizes itself, instead of being told a width.
+   *
+   * The theme has `.callout-content img { width: 85% }`, which is right for a
+   * 300px column and is the reason the ceiling above looked broken once the
+   * box went full width: a replaced element only derives its width from its
+   * own proportions when that width is `auto`, so with 85% of 636px fixed in
+   * place, `max-height` clamped the *element* and `object-fit: contain`
+   * painted the picture inside it -- a 303px portrait centred in a 541px box,
+   * with a hand's width of nothing on either side. Measured, before this:
+   * 541x492 holding a picture 303 wide.
+   *
+   * With `auto`, the two caps resolve together the way the spec describes --
+   * max-width first, then max-height, each feeding back into the other
+   * dimension -- and the element ends up being exactly the picture. Narrow
+   * viewports only: in the floated layout 85% is an inset that looks
+   * deliberate, because there the box is drawn around the portrait rather
+   * than around a table the portrait sits above.
+   *
+   * `!important` because the declaration being overridden is `width: 85%
+   * !important`, from custom.css by way of the extract. Specificity cannot
+   * reach past that on its own, and the two selectors are equal at 0-1-1, so
+   * what settles it is this sheet loading after the theme. */
+  .ml-infobox-image img {
+    width: auto !important;
   }
 }
 
@@ -227,9 +332,9 @@ html[data-lang="ALL"] .lang-title:first-child {
  *
  * It lives in its own grid column to the right of the prose, and sticks there
  * while the note scrolls, so it is always reachable and never covers the text
- * it applies to. Below 60rem the grid collapses and BaseLayout returns it to
- * the flow above the article -- roughly where Obsidian puts it, which is the
- * only place Obsidian allows.
+ * it applies to. Below 72rem the grid collapses and BaseLayout hides the
+ * rail entirely: the header carries a `<select>` with the same choice, which
+ * is what fits once there is no margin beside the text to stand in.
  */
 .lang-rail {
   position: sticky;
@@ -336,9 +441,46 @@ html[data-lang="ALL"] .lang-title:first-child {
   font-weight: 700;
 }
 
+/* The portrait, bounded where the column is narrow, and always the shape it
+ * was drawn.
+ *
+ * The cap is for one layout only: the narrow one, where the infobox stops
+ * floating and lies flat across the top of the note. There the portrait has
+ * the whole column to be as wide as it likes, and an image told to be as wide
+ * as it can be is as *tall* as that makes it -- a tall portrait becomes most
+ * of a screen before a word of prose. Where the box floats in a column of its
+ * own, about 300px of it, that cannot happen, and the picture is shown whole
+ * exactly as it always was.
+ *
+ * So the ceiling is a variable rather than a length in the rule, set only
+ * inside the narrow media query above and falling back to `none` when nothing
+ * has set it. The fallback rather than a `:root` default on purpose: a default
+ * declared here would sit *after* that media query in the file, and between
+ * two `:root` declarations of equal specificity the later one wins, so it
+ * would have quietly cancelled the cap it was written to stand in for.
+ * Measured, before the fallback: a 480px-wide page reported `max-height:
+ * none`.
+ *
+ * One name, one place to turn it, and `embed.css` overrides it for a journal
+ * pane -- which stops floating at a different width and wants a lower ceiling
+ * when it does.
+ *
+ * `object-fit` is the part that is not obvious, and it is what keeps the
+ * proportions once a cap bites. A block replaced element with `width: auto`
+ * takes its intrinsic width, has `max-width` clamp that, computes its height
+ * from the ratio and then has `max-height` clamp *that* -- and nothing goes
+ * back to adjust the width afterwards. With both caps biting, the box ends up
+ * the full width and the capped height and the picture is stretched to fill
+ * it: measured, a 991x1600 portrait came out 245x132. `contain` paints it at
+ * its own proportions inside whatever box it is given, centred. With no cap in
+ * force it does nothing at all, which is why it can be stated unconditionally
+ * instead of travelling with the cap. */
 .ml-infobox-image img {
   max-width: 100%;
   height: auto;
+  max-height: var(--ml-infobox-portrait-max-height, none);
+  object-fit: contain;
+  object-position: center;
 }
 
 .ml-infobox-table {

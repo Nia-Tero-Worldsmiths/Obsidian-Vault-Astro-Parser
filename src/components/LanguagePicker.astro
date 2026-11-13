@@ -1,0 +1,39 @@
+---
+/**
+ * The language switcher as one control, for the narrow-screen header.
+ *
+ * Same choice as the rail of pills in `LanguageBar.astro`, same script
+ * driving it -- this emits markup only. The script there claims anything
+ * carrying `data-lang-pick` or `data-lang-select`, so the two stay in step
+ * without either knowing about the other, and a reader who switches in one
+ * layout and resizes finds the other already agreeing.
+ *
+ * A native `<select>` rather than another `<details>` dropdown. On a phone it
+ * opens as the system's own picker, which is the one piece of UI a reader
+ * already knows how to use, and it needs no script to open, close, trap focus
+ * or get out of the way. The pills stay on the wide layout, where there is a
+ * rail to put them in and a row of two is cheaper to read than a closed box.
+ */
+import { DEFAULT_LANGUAGE, LANGUAGES, LANGUAGE_PICKER_LABEL, pick } from "../i18n/site";
+
+interface Props {
+  /** The codes to offer -- the languages the note carries. */
+  languages: string[];
+}
+
+const { languages } = Astro.props;
+
+const labelFor = (code: string) =>
+  LANGUAGES.find((language) => language.code === code)?.label ?? code;
+---
+
+{/* `aria-label` is an attribute, so it ships in the default language and the
+    script rewrites it on each switch, the way the rail's group label does. */}
+<select
+  class="lang-select"
+  data-lang-select
+  aria-label={pick(LANGUAGE_PICKER_LABEL, DEFAULT_LANGUAGE)}
+  data-lang-select-labels={JSON.stringify(LANGUAGE_PICKER_LABEL)}
+>
+  {languages.map((code) => <option value={code}>{labelFor(code)}</option>)}
+</select>

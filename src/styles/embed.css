@@ -32,10 +32,16 @@
 /* One column. The sidebar is gone, and the language rail follows the article
  * rather than standing beside it: a journal pane is narrower than any desktop
  * reading column, so a third column would squeeze the prose for the sake of
- * two pills. This mirrors what the `60rem` breakpoint already does, and for
+ * two pills. This mirrors what the site's own collapsed layout does, and for
  * the same reason. */
 html[data-embed="journal"] .app {
-  grid-template-columns: minmax(0, 1fr);
+  /* The same column the site uses once its sidebar has stood aside, cap and
+     all -- a wide pane should not set a thousand-pixel line any more than a
+     wide window should. Stated here because the site's version of this rule
+     is inside its own collapsed-layout query, and a pane wider than that
+     query would otherwise fall through to the three-column grid and lay out
+     around a sidebar that is not there. */
+  grid-template-columns: minmax(0, calc(52rem + var(--infobox-extra)));
   /* Tighter than the site's `2rem 1.5rem 4rem`: the embedder's own window
      supplies the outer margin, and paying for it twice wastes a pane that is
      short to begin with. */
@@ -49,6 +55,16 @@ html[data-embed="journal"] .app {
 }
 
 html[data-embed="journal"] .sidebar {
+  display: none;
+}
+
+/* And the way in to it. A journal pane is narrower than the sidebar
+ * breakpoint, so the site's own narrow layout applies here too and would put
+ * a header with a hamburger above the note -- a control that opens a drawer
+ * this mode has already decided not to have. The backdrop goes with it: the
+ * drawer can no longer be opened, so nothing would ever lift it. */
+html[data-embed="journal"] .site-bar,
+html[data-embed="journal"] .nav-backdrop {
   display: none;
 }
 
@@ -129,36 +145,21 @@ html[data-embed="journal"] body {
   --parchment-edge-width: 2rem;
 }
 
-/* Give the infobox its float back.
+/* The infobox's width is not decided here.
  *
- * `site-overrides.css` un-floats it below 60rem, and that threshold is right
- * for the site: at that width the sidebar and a 300px float together leave the
- * prose a few words per line, which `text-align: justify` then stretches into
- * gaps.
+ * It used to be. This mode floated the box from 41rem while the site gave up
+ * at 60rem, and the argument for the difference was that the site's threshold
+ * was measuring a sidebar that a journal pane does not have.
  *
- * In journal mode there is no sidebar. The content column has the whole frame,
- * so it reaches any given width about 19rem of viewport earlier than the
- * site's layout assumes -- 17rem of sidebar plus its 2.5rem gutter. The 60rem
- * threshold is therefore measuring a column that is not there, and an 860px
- * journal window -- which has more room for prose than the site itself does at
- * 1000px -- gets the stacked mobile layout instead: the infobox alone at the
- * top, every paragraph below it.
+ * The site has since taken that reasoning for itself: it stands the sidebar
+ * aside at 72rem and keeps the float down to 46rem, so a page with no sidebar
+ * and a journal pane are now asking the same question and getting the same
+ * answer. The rules that used to be here -- float back on above the
+ * threshold, cap lifted below it -- said nothing the site does not already
+ * say, so they are gone rather than restated.
  *
- * So: the same rule, from the width at which the *prose* is as wide as the
- * site would have made it. 60rem minus the sidebar it no longer pays for.
- *
- * `!important` because the declaration being corrected has it, and nothing
- * else beats that -- specificity alone cannot. This selector carries more
- * specificity, which is what settles it between two `!important` rules. Only
- * `float` and its margin are restated: the width the narrow rule also sets is
- * already overridden by the plugin infobox's own styles, so repeating it here
- * would be guessing at a cascade that is already settled. */
-@media (min-width: 41rem) {
-  html[data-embed="journal"] .callout[data-callout~="infobox"] {
-    float: right !important;
-    margin-inline: 5px 0 !important;
-  }
-}
+ * What stays below is the portrait's *height*, which is genuinely this mode's
+ * own business: a pane is short where a window is tall. */
 
 /* ------------------------------------------------------------------ *
  * Both modes
@@ -187,4 +188,42 @@ html[data-embed] .site-footer .license-badge {
 
 html[data-embed="journal"] .site-footer p + p {
   margin-top: 0.25rem;
+}
+
+/* And the portrait in it, bounded -- in this range, and only this range.
+ *
+ * Giving the infobox the pane's full width gave the portrait the same, and an
+ * image told to be as wide as it can be is as *tall* as that makes it: the
+ * table got its room back and the picture took the room instead.
+ *
+ * Bounded by height rather than by width, because height is what is scarce
+ * here. A journal pane is short, and what matters is how much of it is gone
+ * before the prose starts -- an absolute quantity rather than a proportion of
+ * the width. `vh` inside a frame is the frame's own height, so this reads as
+ * "never more than about a third of the pane", whatever shape the picture is.
+ *
+ * Lower than the site's own ceiling because a pane is shorter than a screen
+ * and the same fraction of it costs more. `site-overrides.css` declares the
+ * variable and explains the `object-fit` that keeps the proportions while two
+ * caps are both biting.
+ */
+@media (max-width: 45.99rem) {
+  html[data-embed="journal"] {
+    --ml-infobox-portrait-max-height: 38vh;
+  }
+}
+
+/* Above the threshold, no ceiling at all: the rule further up gives the box
+ * its float back, so the portrait is in a 300px column again and cannot grow
+ * into the prose.
+ *
+ * Both thresholds are the site's now, so this says the same thing the site's
+ * own rule does and only changes the number -- but it still has to be said:
+ * the site's ceiling is declared on `:root`, and leaving this one off would
+ * mean a floated journal portrait inheriting a cap written for a box lying
+ * flat across a column. */
+@media (min-width: 46rem) {
+  html[data-embed="journal"] {
+    --ml-infobox-portrait-max-height: none;
+  }
 }

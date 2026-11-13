@@ -101,6 +101,13 @@ const showBar = languages.length > 1;
     group?.dataset.langGroupLabels ?? "{}",
   );
   const pills = [...document.querySelectorAll<HTMLButtonElement>("[data-lang-pick]")];
+  // The same choice as one control, for the narrow header. See
+  // `LanguagePicker.astro`; this script drives both so neither can fall out
+  // of step with the other, or with `<html data-lang>`.
+  const select = document.querySelector<HTMLSelectElement>("[data-lang-select]");
+  const selectLabels: Record<string, string> = JSON.parse(
+    select?.dataset.langSelectLabels ?? "{}",
+  );
 
   function apply(code: string) {
     root.setAttribute("data-lang", code);
@@ -122,6 +129,17 @@ const showBar = languages.length > 1;
       group.setAttribute("aria-label", groupLabels[code]);
     }
 
+    // Set rather than assumed: this also runs on load, when the stored
+    // language may be anything, and after a switch made from the pills.
+    // Only to a language the note actually offers -- assigning a value no
+    // `<option>` carries leaves a select showing nothing at all, and the
+    // note is already handling that case with the notice below.
+    if (select) {
+      const offered = [...select.options].some((option) => option.value === code);
+      if (offered && select.value !== code) select.value = code;
+      if (selectLabels[code]) select.setAttribute("aria-label", selectLabels[code]);
+    }
+
     // Say so when the reader is looking at a language the note does not have.
     if (notice) {
       const missing = code !== "ALL" && !available.has(code);
@@ -140,6 +158,8 @@ const showBar = languages.length > 1;
   for (const pill of pills) {
     pill.addEventListener("click", () => apply(pill.dataset.langPick ?? "es"));
   }
+
+  select?.addEventListener("change", () => apply(select.value));
 
   // `ALL` is no longer offered, so a value left in storage from before would
   // strand the reader on a page showing every language with no way back.

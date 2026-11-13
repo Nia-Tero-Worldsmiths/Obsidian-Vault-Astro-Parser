@@ -42,6 +42,7 @@ import "../styles/embed.css";
 import ImageGallery from "../components/ImageGallery.astro";
 import Lightbox from "../components/Lightbox.astro";
 import LanguageBar from "../components/LanguageBar.astro";
+import LanguagePicker from "../components/LanguagePicker.astro";
 import EmbedMode from "../components/EmbedMode.astro";
 // The codes this build actually serves, for the inline script below to
 // validate `?lang=` against.
@@ -141,10 +142,91 @@ const navTree = Object.values(generated)[0] ?? { children: [] };
         which is why `site` has to be set in astro.config.mjs. */}
     <link rel="canonical" href={new URL(Astro.url.pathname, Astro.site).href} />
     <title>{title}</title>
+    {/* No script, no drawer. The button that opens it cannot work, so the
+        sidebar goes back to standing above the article the way it did before
+        the drawer existed -- in the way, but reachable, which is the better
+        of the two. Everything else on the page already degrades: the tree's
+        folders are `<details>`, the links are links, and the note renders in
+        the default language.
+
+        `is:inline` is load-bearing. Astro collects and hoists component
+        `<style>` tags into the bundle, and a hoisted copy of this would
+        apply to every reader rather than the ones it is written for. */}
+    <noscript>
+      <style is:inline>
+        @media (max-width: 71.99rem) {
+          .site-bar,
+          .nav-backdrop {
+            display: none !important;
+          }
+
+          .sidebar {
+            position: static !important;
+            visibility: visible !important;
+            transform: none !important;
+            width: auto !important;
+            /* Ahead of the language rail, which takes -1. */
+            order: -2 !important;
+            padding: 0 0 1rem !important;
+            border-right: none !important;
+            border-bottom: 1px solid var(--background-modifier-border, #eee) !important;
+            box-shadow: none !important;
+          }
+
+          .sidebar-header .site-title {
+            display: inline !important;
+          }
+
+          .sidebar-header {
+            justify-content: space-between !important;
+          }
+
+          /* Switching language is a script setting `data-lang`, so without
+             one this control cannot do anything. The pills it replaced were
+             just as dead here, but a dropdown that does not respond reads as
+             broken rather than absent. The note still renders, in the
+             language the parser wrote into the page. */
+          .lang-select {
+            display: none !important;
+          }
+        }
+      </style>
+    </noscript>
   </head>
   <body class="theme-light wotc-beyond sizing-readable">
+    {/* The narrow-screen header. Hidden from 72rem up, where the sidebar is a
+        column of its own and needs no way in.
+
+        Outside `.app` on purpose: it spans the window rather than the grid,
+        and it has to outrank the backdrop so the button that opened the
+        drawer is still there to close it. */}
+    <header class="site-bar">
+      <button
+        type="button"
+        class="nav-toggle"
+        data-nav-toggle
+        aria-controls="site-sidebar"
+        aria-expanded="false"
+        aria-label="Navegación"
+      >
+        {/* Three bars that become a cross while the drawer is open. Decorative
+            -- the button is named by its `aria-label`. */}
+        <span class="nav-toggle-bars" aria-hidden="true">
+          <span></span><span></span><span></span>
+        </span>
+      </button>
+      <a class="site-title" href="/">Nia Tero Exxet</a>
+      {/* At the far end of the bar, where a language control is looked for.
+          Only on a note that has more than one language -- the same test the
+          rail makes, so the two appear and disappear together. */}
+      {languages.length > 1 && <LanguagePicker languages={languages} />}
+    </header>
+    {/* Dims and catches clicks on the page behind the open drawer. Always in
+        the markup: it is `visibility: hidden` until the drawer opens, so it
+        costs one element and no script to create. */}
+    <div class="nav-backdrop" data-nav-backdrop></div>
     <div class="app">
-      <aside class="sidebar">
+      <aside class="sidebar" id="site-sidebar">
         <div class="sidebar-header">
           {/* "Nia Tero" is the fictional world; "Nia Tero Exxet" is this wiki. */}
           <a class="site-title" href="/">Nia Tero Exxet</a>
@@ -187,8 +269,9 @@ const navTree = Object.values(generated)[0] ?? { children: [] };
         <slot />
       </main>
       {/* Its own column, so it never overlaps the text it belongs to.
-          Below 60rem the grid collapses and it returns to the flow
-          above the article, which is where the plugin puts it. */}
+          Below 72rem the grid collapses and the rail gives way to the
+          select in the header, which is the only control there is room
+          for once the page is one column. */}
       <LanguageBar languages={languages} />
     </div>
     {/* Outside `.app` so it spans the full width under both columns, and out of
@@ -244,12 +327,144 @@ const navTree = Object.values(generated)[0] ?? { children: [] };
         refresh();
       }
     </script>
+
+    <script>
+      // The navigation drawer, below the sidebar breakpoint.
+      //
+      // The sidebar is the same element in both layouts -- one tree, one
+      // graph, one place they are authored. Below 72rem CSS takes it out of
+      // the flow and parks it off the left edge; this only flips the state
+      // the CSS keys off, and keeps the parts a stylesheet cannot do:
+      // Escape, the backdrop, who may be reached while it is open, and where
+      // the focus goes when it closes.
+      const root = document.documentElement;
+      const toggle = document.querySelector<HTMLButtonElement>("[data-nav-toggle]");
+      const drawer = document.getElementById("site-sidebar");
+      const backdrop = document.querySelector<HTMLElement>("[data-nav-backdrop]");
+
+      if (toggle && drawer) {
+        // What the open drawer covers. `inert` is what makes it a drawer
+        // rather than a panel that happens to be on top: without it the Tab
+        // key walks straight out of the open drawer and into a note the
+        // reader cannot see, and a screen reader reads both at once. The
+        // header is left out -- the button that closes this is in it.
+        const covered = [
+          ...document.querySelectorAll<HTMLElement>("main, .lang-rail, .site-footer"),
+        ];
+
+        // Matching the breakpoint in the stylesheet. Stated twice, which is
+        // the cost of the drawer existing in two languages; the comment at
+        // the CSS says the same thing from the other side.
+        const narrow = window.matchMedia("(max-width: 71.99rem)");
+
+        /** `restoreFocus` is false when the layout closed it rather than the
+         *  reader: the button is gone by then, and pulling focus to a hidden
+         *  element drops it on `<body>`. */
+        const setOpen = (open: boolean, restoreFocus = true) => {
+          if (open === root.hasAttribute("data-nav-open")) return;
+
+          root.toggleAttribute("data-nav-open", open);
+          toggle.setAttribute("aria-expanded", String(open));
+          for (const element of covered) element.toggleAttribute("inert", open);
+
+          // Into the drawer on open, back to the button on close, so a
+          // keyboard reader is never left where they cannot see the caret.
+          //
+          // The first *visible* control, not simply the first one: the
+          // drawer's own copy of the site title is `display: none` at this
+          // width -- the header above carries it -- and calling `focus()` on
+          // a hidden element does nothing at all, quietly, which is how this
+          // first shipped with the focus still on the button that opened it.
+          if (open) {
+            const reachable = [
+              ...drawer.querySelectorAll<HTMLElement>(
+                "a[href], button:not([disabled]), summary, [tabindex]:not([tabindex='-1'])",
+              ),
+            ].find((element) => element.getClientRects().length > 0);
+            reachable?.focus();
+          } else if (restoreFocus) {
+            toggle.focus();
+          }
+        };
+
+        toggle.addEventListener("click", () =>
+          setOpen(!root.hasAttribute("data-nav-open")),
+        );
+        backdrop?.addEventListener("click", () => setOpen(false));
+
+        document.addEventListener("keydown", (event) => {
+          if (event.key === "Escape") setOpen(false);
+        });
+
+        // A window widened past the breakpoint puts the sidebar back in the
+        // flow, and an `inert` left on the article would then be silently
+        // unreachable prose. Nothing here is about appearance -- the CSS has
+        // already relaid the page by the time this runs.
+        narrow.addEventListener("change", (event) => {
+          if (!event.matches) setOpen(false, false);
+        });
+      }
+    </script>
   </body>
 </html>
 
 <style is:global>
   :root {
     color-scheme: light;
+
+    /* ── The page's horizontal budget ────────────────────────────────────
+     *
+     * The theme floats the infobox at 300px, and at that width the label
+     * column cannot hold "Lugar de nacimiento" or "Tipo de organización" on
+     * one line, so a third of the rows in a character's sheet are two lines
+     * tall for no reason but 40 missing pixels.
+     *
+     * So the box gets a little more, and the content column gets exactly the
+     * same amount, which is the whole point of naming it once: the text
+     * beside the infobox is `column - margins - box`, and if both ends grow
+     * by the same number that measure does not move. Measured either side of
+     * the threshold below: a 448px first line, before and after.
+     *
+     * 3rem is what it takes and no more. The widest label anywhere on the
+     * site is "Tipo de organización" at 174px; the label column settles
+     * there once it stops wrapping, and 300 + 48 leaves the value column at
+     * 163px -- a pixel over what it has today.
+     *
+     * Zero by default, because the extra only exists on a window wide enough
+     * to have it spare. See the threshold below. */
+    --infobox-extra: 0rem;
+
+    /* The cap the floated box actually gets. `embed.css` reads it too: a
+       journal pane floats the infobox at its own threshold and has to put
+       the cap back afterwards. */
+    --infobox-max-width: calc(300px + var(--infobox-extra));
+  }
+
+  /* Wide enough to pay for it.
+   *
+   * Below this the content column is already shorter than its own maximum,
+   * so the extra it was promised is not there, and a box that widened anyway
+   * would be taking the 3rem out of the prose -- the one thing this is not
+   * allowed to do. Above it both grow together and the measure does not
+   * move: 448px of first line either side of the threshold, measured.
+   *
+   * 82rem is where the column reaches its maximum: 1.5rem of page padding
+   * each side, the 17rem sidebar track, two 0.75rem gaps, the language
+   * rail's ~5.5rem, and the 52rem column itself. A monolingual note has no
+   * rail and gets there a little earlier, and simply waits -- the cost of
+   * waiting is the layout it already had.
+   *
+   * A threshold rather than a `clamp()` that works the slack out for itself,
+   * which is what this was first written as. The arithmetic needs the width
+   * of the article's content box, and `100%` is 15px short of it: the
+   * reading column reserves a scrollbar gutter that no stylesheet can see,
+   * and the box came out 333px with the prose 15px wider than before. This
+   * way nothing has to know -- both sides grow by the same declared amount
+   * and the difference between them is untouched, whatever it is. */
+  @media (min-width: 82rem) {
+    :root {
+      --infobox-extra: 3rem;
+    }
   }
 
   /* Colours, typography and component styling all come from the extracted
@@ -279,6 +494,11 @@ const navTree = Object.values(generated)[0] ?? { children: [] };
     color: var(--text-normal, #222);
   }
 
+  /* Still 60rem, and deliberately. These two are about how big the *window*
+     is, not about how the page is laid out in it -- a 7rem gradient and a
+     wide footer gutter stop suiting a small screen at roughly this width,
+     whether or not the sidebar has stood aside by then. The layout's own
+     threshold is 72rem, further down. */
   @media (max-width: 60rem) {
     body {
       --parchment-edge-width: 3rem;
@@ -290,7 +510,13 @@ const navTree = Object.values(generated)[0] ?? { children: [] };
     /* Third column is the language rail. `auto` rather than a fixed width so
        it takes only what the pills need, and collapses to nothing on a note
        that has just one language. */
-    grid-template-columns: minmax(0, 17rem) minmax(0, 52rem) auto;
+    /* The content column carries the infobox's extra as well as its own
+       52rem, so the prose beside the box keeps the width it always had.
+       See `--infobox-extra` above -- the two numbers are one decision. */
+    grid-template-columns:
+      minmax(0, 17rem)
+      minmax(0, calc(52rem + var(--infobox-extra)))
+      auto;
     /* The rail sits close to the text it applies to, so it reads as part of
        the article rather than as a second sidebar. The column gap is that
        short distance; the sidebar buys its own wider gutter back with a
@@ -350,52 +576,303 @@ const navTree = Object.values(generated)[0] ?? { children: [] };
     outline-offset: 1px;
   }
 
-  /* Single column below the sidebar breakpoint; the tree moves under the note. */
-  @media (max-width: 60rem) {
-    .app {
-      grid-template-columns: minmax(0, 1fr);
+  /* ── The narrow-screen header and its drawer ─────────────────────────── */
+
+  /* Absent from the wide layout rather than merely hidden: there the sidebar
+     is a column that is always on screen, so a control to reveal it would
+     offer to open what is already open. */
+  .site-bar,
+  .nav-backdrop {
+    display: none;
+  }
+
+  .nav-toggle {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    padding: 0;
+    cursor: pointer;
+    color: var(--text-muted, #777);
+    background: transparent;
+    border: 1px solid var(--background-modifier-border, #ddd);
+    border-radius: var(--radius-s, 4px);
+  }
+
+  .nav-toggle:hover {
+    color: var(--text-accent, #a33);
+    border-color: var(--text-accent, #a33);
+  }
+
+  .nav-toggle:focus-visible {
+    outline: 2px solid var(--text-accent, #a33);
+    outline-offset: 1px;
+  }
+
+  /* Shaped like the gallery's chooser and the infobox's: one border, one
+     radius, the form-field background. Nothing here is new -- it is the
+     site's existing control, in a new place. */
+  .lang-select {
+    flex: none;
+    max-width: 10rem;
+    padding: 3px 6px;
+    border: 1px solid var(--background-modifier-border, #d8ccbc);
+    border-radius: var(--radius-s, 4px);
+    background: var(--background-modifier-form-field, var(--background-primary, #fff));
+    color: var(--text-normal, #1a1a1a);
+    /* The same stack the pills use, and for the same reason: `日本語` would
+       otherwise be the only Japanese on a page being read in Spanish, and it
+       would pull down the whole 2 MB content face to set three characters.
+       This UI face carries them and nothing else. */
+    font-family: "Noto Sans JP UI", var(--font-default);
+    font-size: 0.8rem;
+    line-height: 1.4;
+    cursor: pointer;
+  }
+
+  .lang-select:focus-visible {
+    outline: 2px solid var(--text-accent, #a33);
+    outline-offset: 1px;
+  }
+
+  /* The three bars. Sized in the wrapper so the two that fold into a cross
+     can be positioned against a box of known height, which is what lets them
+     meet in the middle rather than near it. */
+  .nav-toggle-bars {
+    position: relative;
+    width: 1.05rem;
+    height: 0.75rem;
+  }
+
+  .nav-toggle-bars span {
+    position: absolute;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background: currentcolor;
+    border-radius: 1px;
+    transition:
+      transform 0.2s ease,
+      opacity 0.12s ease;
+  }
+
+  .nav-toggle-bars span:nth-child(1) { top: 0; }
+  .nav-toggle-bars span:nth-child(2) { top: calc(50% - 1px); }
+  .nav-toggle-bars span:nth-child(3) { bottom: 0; }
+
+  /* Open: the outer two rotate onto the middle one's line and the middle one
+     goes. Both halves of the translate are stated in the same unit as the
+     box above, so the cross stays centred whatever the font size. */
+  html[data-nav-open] .nav-toggle-bars span:nth-child(1) {
+    transform: translateY(calc(0.375rem - 1px)) rotate(45deg);
+  }
+
+  html[data-nav-open] .nav-toggle-bars span:nth-child(2) {
+    opacity: 0;
+  }
+
+  html[data-nav-open] .nav-toggle-bars span:nth-child(3) {
+    transform: translateY(calc(1px - 0.375rem)) rotate(-45deg);
+  }
+
+  /* Single column below the sidebar breakpoint, and the sidebar becomes a
+     drawer over the page rather than a block above it.
+
+     It used to stack: the whole tree, the Galería link and the graph sat
+     above the article, so on a 760px window the first screen was navigation
+     and the note began below the fold. The drawer is the same element and
+     the same markup -- only out of the flow until it is asked for.
+
+     ── 72rem, and why it is not 60rem ──
+     The sidebar costs the content column 383px: 17rem of track, a 0.75rem
+     gap and the language rail. At 60rem that left the column 529px, and a
+     floated 300px infobox left the prose beside it **145px** -- about
+     eighteen characters, which `text-align: justify` then pulled into
+     rivers. The window was wide; the column was not, because the sidebar
+     was spending it.
+
+     So the sidebar now stands aside sooner, and the column takes what it
+     was spending. Measured beside the infobox: 337px just above this line,
+     448px just below it -- the same measure the full-width layout has. The
+     worst case anywhere in the floated range is now 337px instead of 145px,
+     and the infobox goes on floating down to 46rem (see
+     `site-overrides.css`) rather than giving up here. */
+  @media (max-width: 71.99rem) {
+    body {
+      /* The header, the drawer that hangs below it and the space the article
+         leaves for it all have to agree on how tall it is. Named once. */
+      --site-bar-height: 3rem;
     }
 
-    /* No room for a rail: the bar goes back above the article and stays
-       pinned there while the note scrolls -- where Obsidian puts it, and the
-       only place Obsidian allows. Rows are stated explicitly so the bar
-       cannot land in the same cell as the article. */
-    .sidebar {
-      grid-row: 1;
-      /* One column now, so the gutter it was compensating for is gone. */
-      margin-right: 0;
-    }
-
-    .lang-rail {
-      grid-row: 2;
-      position: static;
-    }
-
-    main {
-      grid-row: 3;
-    }
-
-    .lang-bar {
-      position: sticky;
-      top: 0;
-      z-index: 5;
-      margin: 0 0 1rem;
-    }
-
-    /* Horizontal again: stacked pills would eat the vertical space the
-       article needs, and here the bar has the full width to itself. */
-    .lang-rail .lang-bar {
-      flex-direction: row;
+    /* `fixed`, not `sticky`, and that is a fix rather than a preference.
+     *
+     * Opening the drawer locks the page behind it with `overflow: hidden` on
+     * the root -- and a sticky box has nothing to stick to once its scroll
+     * container stops scrolling, so it falls back to its static position.
+     * On a page scrolled 600px down, that position is 600px above the
+     * window: the header vanished exactly when the drawer it belongs to
+     * appeared. Measured, before this: `y = -599` with the drawer open. */
+    .site-bar {
+      display: flex;
       align-items: center;
+      gap: 0.65rem;
+      position: fixed;
+      top: 0;
+      right: 0;
+      left: 0;
+      /* Above the backdrop, and so above the drawer's own edge: the button
+         that opened this has to stay reachable to close it, which is the
+         first thing a reader will try. */
+      z-index: 50;
+      height: var(--site-bar-height);
+      padding: 0 0.9rem;
+      background: var(--background-primary, #fff);
+      border-bottom: 1px solid var(--background-modifier-border, #eee);
     }
 
+    /* Pushed to the far end of the bar, past the title. */
+    .site-bar .lang-select {
+      margin-left: auto;
+    }
+
+    /* An in-page link would otherwise land underneath the fixed bar. */
+    html {
+      scroll-padding-top: var(--site-bar-height);
+    }
+
+    .app {
+      /* One column, and still a column: the same maximum it has beside the
+         sidebar, centred by the `justify-content` the grid already carries.
+         Letting it run the whole window was right while this layout only
+         ever happened on a phone; it is wrong at 1100px, where it would set
+         a thousand-pixel line. Below about 55rem of window the maximum
+         stops biting and the column fills what there is, which is the
+         behaviour a phone had all along. */
+      grid-template-columns: minmax(0, calc(52rem + var(--infobox-extra)));
+      /* The bar is out of the flow now, so the article has to leave its
+         height clear itself. */
+      padding-top: calc(var(--site-bar-height) + 1.25rem);
+    }
+
+    /* Out of the flow and parked off the left edge.
+     *
+     * `visibility` as well as the transform, and this is the load-bearing
+     * part: a transform alone leaves the tree in the tab order and in a
+     * screen reader's path while it is shut, so a keyboard reader would walk
+     * the whole vault before reaching the note. Transitioned with a delay on
+     * the way out so the slide is still seen, and with none on the way in. */
     .sidebar {
-      position: static;
+      position: fixed;
+      top: var(--site-bar-height);
+      bottom: 0;
+      left: 0;
+      z-index: 40;
+      width: min(19rem, 86vw);
       max-height: none;
-      border-right: none;
-      border-bottom: 1px solid #eee;
-      padding-right: 0;
-      padding-bottom: 1rem;
+      /* Load-bearing, and not obvious. The wide layout gives this
+         `align-self: start` so the sticky column does not stretch down the
+         grid row -- and a box that is out of flow but has an alignment other
+         than `normal` is sized to its content and then aligned inside its
+         insets, so `top` and `bottom` stopped meaning "fill between these".
+         Measured: 640px of tree in a 772px gap, with the backdrop showing
+         under it, and a longer tree clipped with nothing to scroll. */
+      align-self: stretch;
+      margin-right: 0;
+      padding: 1rem 1rem 2rem;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      background: var(--background-primary, #fff);
+      border-right: 1px solid var(--background-modifier-border, #eee);
+      box-shadow: 0 0 28px rgb(0 0 0 / 22%);
+      visibility: hidden;
+      transform: translateX(-100%);
+      transition:
+        transform 0.22s ease,
+        visibility 0s linear 0.22s;
+    }
+
+    html[data-nav-open] .sidebar {
+      visibility: visible;
+      transform: none;
+      transition:
+        transform 0.22s ease,
+        visibility 0s;
+    }
+
+    /* The title is in the header now, two centimetres above; repeating it at
+       the top of the drawer says the same thing twice. The expand control
+       stays and takes the row to itself. */
+    .sidebar-header {
+      justify-content: flex-end;
+    }
+
+    .sidebar-header .site-title {
+      display: none;
+    }
+
+    .nav-backdrop {
+      display: block;
+      position: fixed;
+      top: var(--site-bar-height);
+      right: 0;
+      bottom: 0;
+      left: 0;
+      z-index: 30;
+      background: rgb(36 24 12 / 45%);
+      opacity: 0;
+      visibility: hidden;
+      transition:
+        opacity 0.22s ease,
+        visibility 0s linear 0.22s;
+    }
+
+    html[data-nav-open] .nav-backdrop {
+      opacity: 1;
+      visibility: visible;
+      transition:
+        opacity 0.22s ease,
+        visibility 0s;
+    }
+
+    /* The page behind the drawer holds still. Both elements, because
+       `overflow` on `body` alone propagates to the viewport instead of
+       taking effect where it is written; `scrollbar-gutter` keeps a window
+       that has a classic scrollbar from jumping a few pixels wider the
+       moment the drawer opens. */
+    html[data-nav-open],
+    html[data-nav-open] body {
+      overflow: hidden;
+    }
+
+    html {
+      scrollbar-gutter: stable;
+    }
+
+    /* The rail gives way to the select in the header.
+     *
+     * The pills were laid flat above the article here, and that was never a
+     * good row: the rail is built to stand in a margin beside the text, so
+     * without one it reached back across the article's padding and sat half
+     * off the left edge of the window. Widening it would only have moved the
+     * problem -- a band of chrome across the top of a phone, above the
+     * breadcrumb, is a line the reader pays for on every note and uses
+     * twice. The header already spans the width and already has a right-hand
+     * end going spare, which is where a language control is looked for. */
+    .lang-rail {
+      display: none;
+    }
+  }
+
+  /* The drawer still opens and closes; it simply arrives. */
+  @media (prefers-reduced-motion: reduce) {
+    .sidebar,
+    .nav-backdrop,
+    .nav-toggle-bars span,
+    html[data-nav-open] .sidebar,
+    html[data-nav-open] .nav-backdrop {
+      transition: none;
     }
   }
 
@@ -460,6 +937,8 @@ const navTree = Object.values(generated)[0] ?? { children: [] };
     flex: none;
   }
 
+  /* A window measurement, like the parchment edge above -- not the layout
+     threshold. */
   @media (max-width: 60rem) {
     .site-footer {
       padding-bottom: 2rem;
