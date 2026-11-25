@@ -145,21 +145,76 @@ html[data-embed="journal"] body {
   --parchment-edge-width: 2rem;
 }
 
-/* The infobox's width is not decided here.
+/* The infobox goes on floating 2rem further down than the site allows.
  *
- * It used to be. This mode floated the box from 41rem while the site gave up
- * at 60rem, and the argument for the difference was that the site's threshold
- * was measuring a sidebar that a journal pane does not have.
+ * This file used to answer 41rem against the site's 60rem, then gave the
+ * question up entirely when the site reworked its own layout and landed on
+ * 46rem -- at which point the two were asking the same thing and the rules
+ * here said nothing new. The number is back because a real pane turned out to
+ * sit just under the line.
  *
- * The site has since taken that reasoning for itself: it stands the sidebar
- * aside at 72rem and keeps the float down to 46rem, so a page with no sidebar
- * and a journal pane are now asking the same question and getting the same
- * answer. The rules that used to be here -- float back on above the
- * threshold, cap lifted below it -- said nothing the site does not already
- * say, so they are gone rather than restated.
+ * ── where 44rem comes from ──
+ * A pf1 **alt sheet in sidebar mode**, opened at its default size, gives the
+ * frame a shade over 730px. The site's threshold is 736px. The stacked layout
+ * was appearing in a pane with all but a handful of pixels of the width it
+ * needed -- and stacking costs far more than those pixels, because the box
+ * goes from a 300px column beside the text to the full width above it, taking
+ * the portrait with it. A threshold that close to a real, common width is a
+ * coin toss: a slightly thinner scrollbar on the other side of the frame
+ * flips the whole layout.
  *
- * What stays below is the portrait's *height*, which is genuinely this mode's
- * own business: a pane is short where a window is tall. */
+ * So it moves to 704px, which clears that pane by about 26px -- enough that a
+ * nudge does not change the answer.
+ *
+ * ── what it costs ──
+ * Measured on this build, journal mode, first line of prose beside a floated
+ * box: 321px at the site's 736px threshold, 305px at 720, 285px at 704. So
+ * the worst case this admits is 285px against the site's 321px, about four
+ * characters narrower. That is the whole price, and it buys the floated
+ * layout for every pane between 704 and 736 -- which, on the evidence of the
+ * sheet that prompted this, is where panes actually are.
+ *
+ * Below 704px nothing changes: the site's rule takes over, the box lies flat
+ * and the portrait gets the ceiling further down this file.
+ *
+ * ── why it has to be restated rather than just moved ──
+ * The site's narrow rule does four things, two of them `!important`, and this
+ * has to undo all four: the float, the width, the max-width it cleared and
+ * the margins it flattened. `--infobox-max-width` is the layout's own name
+ * for the cap (`BaseLayout.astro` declares it), so the box comes back at
+ * exactly the width a wide window would have given it rather than at a 300px
+ * guess that would drift the day that number changes. */
+@media (min-width: 44rem) and (max-width: 45.99rem) {
+  /* One class more specific than the rule it is correcting, which is what
+     settles it between two `!important` declarations. */
+  html[data-embed="journal"] .callout.callout[data-callout~="infobox"] {
+    float: right !important;
+    width: auto !important;
+    max-width: var(--infobox-max-width);
+    /* 5px of air on the inline-start side, which is the gap the theme gives a
+       floated box and the narrow rule flattened on its way past. The block
+       margin goes back to nothing for the same reason: the 1.25rem under it
+       keeps a stacked box off the prose below, and a floated box has prose
+       beside it instead. */
+    margin-inline: 5px 0;
+    margin-block-end: 0;
+  }
+
+  /* And the portrait goes back to wearing the floated layout's inset.
+   *
+   * `site-overrides.css` lets the picture size itself below 46rem, because a
+   * box lying flat across the column is drawn around a table rather than
+   * around a portrait, and an 85% width in that layout is a replaced element
+   * being told a width while two caps are already arguing over it.
+   *
+   * None of which applies in here, where the box is floating: this is the
+   * floated layout, 2rem early. Nothing but the width needs saying -- the cap
+   * is lifted further down this file by the same reasoning, and these two
+   * declarations are the whole of what "floating" means to the portrait. */
+  html[data-embed="journal"] {
+    --ml-infobox-portrait-width: 85%;
+  }
+}
 
 /* ------------------------------------------------------------------ *
  * Both modes
@@ -207,22 +262,23 @@ html[data-embed="journal"] .site-footer p + p {
  * variable and explains the `object-fit` that keeps the proportions while two
  * caps are both biting.
  */
-@media (max-width: 45.99rem) {
+@media (max-width: 43.99rem) {
   html[data-embed="journal"] {
     --ml-infobox-portrait-max-height: 38vh;
   }
 }
 
-/* Above the threshold, no ceiling at all: the rule further up gives the box
- * its float back, so the portrait is in a 300px column again and cannot grow
- * into the prose.
+/* Above the threshold, no ceiling at all: the box is floating again -- by
+ * this mode's own rule between 44 and 46rem, by the site's above that -- so
+ * the portrait is in a 300px column and cannot grow into the prose.
  *
- * Both thresholds are the site's now, so this says the same thing the site's
- * own rule does and only changes the number -- but it still has to be said:
- * the site's ceiling is declared on `:root`, and leaving this one off would
- * mean a floated journal portrait inheriting a cap written for a box lying
- * flat across a column. */
-@media (min-width: 46rem) {
+ * This has to be said rather than left to the site, and the 2rem where the
+ * two modes disagree is exactly why: the site's ceiling is declared on
+ * `:root` and its rule is still capping at 45.99rem, so without this a
+ * journal portrait would float in a column of its own while wearing a cap
+ * written for a box lying flat across the page. The two thresholds are one
+ * decision and are written as one. */
+@media (min-width: 44rem) {
   html[data-embed="journal"] {
     --ml-infobox-portrait-max-height: none;
   }

@@ -200,10 +200,13 @@ a.tag {
  * point. Below this the window really has nothing to spare and the box
  * takes the column, which is what a phone wants anyway.
  *
- * `embed.css` asks the same question of a journal pane and answers 41rem:
- * that pane spends less on its own margins, and is read in a window the
- * embedder has already chosen. Two numbers, one rule -- float for as long
- * as the text beside it still reads.
+ * `embed.css` asks the same question of a journal pane and answers 44rem,
+ * holding the float on for 2rem after this rule gives up. Not because a pane
+ * reads better at 704px than a page does, but because of where panes
+ * actually are: a pf1 alt sheet in sidebar mode, at its default size, hands
+ * the frame a shade over 730px, and stacking a box in a pane that is five
+ * pixels short of the line costs far more than the five pixels. Two numbers,
+ * one rule -- float for as long as the text beside it still reads.
  *
  * `.callout.callout` is the load-bearing part, and this rule did not have it.
  * The theme's own infobox block is `.callout.callout[data-callout~=infobox]`
@@ -236,7 +239,17 @@ a.tag {
     --ml-infobox-portrait-max-height: 60vh;
   }
 
+  /* The second half of the same decision; the comment below says why. */
+
   /* And the portrait sizes itself, instead of being told a width.
+   *
+   * Declared as the variable the rule further down reads, not as a rule of
+   * its own, and that is a fix: a journal pane floats the box for 2rem below
+   * this threshold, so "narrow viewport" and "stacked box" stopped being the
+   * same thing the day `embed.css` took its own number. Written as a media
+   * query this said *at this width*; written as a variable it says *in this
+   * layout*, which is what it always meant. `embed.css` sets it back for the
+   * pane widths where the box is floating after all.
    *
    * The theme has `.callout-content img { width: 85% }`, which is right for a
    * 300px column and is the reason the ceiling above looked broken once the
@@ -254,12 +267,12 @@ a.tag {
    * deliberate, because there the box is drawn around the portrait rather
    * than around a table the portrait sits above.
    *
-   * `!important` because the declaration being overridden is `width: 85%
-   * !important`, from custom.css by way of the extract. Specificity cannot
-   * reach past that on its own, and the two selectors are equal at 0-1-1, so
-   * what settles it is this sheet loading after the theme. */
-  .ml-infobox-image img {
-    width: auto !important;
+   * The `!important` that carries this lives on the rule below, not here:
+   * the declaration being overridden is `width: 85% !important` from
+   * custom.css by way of the extract, the two selectors are equal at 0-1-1,
+   * and what settles it is this sheet loading after the theme. */
+  :root {
+    --ml-infobox-portrait-width: auto;
   }
 }
 
@@ -481,6 +494,17 @@ html[data-lang="ALL"] .lang-title:first-child {
   max-height: var(--ml-infobox-portrait-max-height, none);
   object-fit: contain;
   object-position: center;
+
+  /* 85% is the theme's number, from `.callout-content img` in custom.css, and
+     restating it here rather than letting it through is what makes it a knob
+     the layout can turn. In the floated box it reads as a deliberate inset --
+     the box is drawn around the portrait there. Laid flat above a table it is
+     not an inset but a misfit, and the narrow rule above sets `auto` instead;
+     see it for what goes wrong when a replaced element with two caps on it is
+     also told a width.
+
+     `!important` to reach past the theme's own, which carries one. */
+  width: var(--ml-infobox-portrait-width, 85%) !important;
 }
 
 .ml-infobox-table {
