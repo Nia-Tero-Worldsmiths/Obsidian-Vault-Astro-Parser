@@ -21,23 +21,41 @@ import "../styles/zoommap.css";
     const world = map.querySelector<HTMLElement>(".zoommap-world");
     if (!viewport || !world) return;
 
-    const min = parseFloat(map.dataset.minZoom ?? "0.25") || 0.25;
+    const declaredMin = parseFloat(map.dataset.minZoom ?? "0.25") || 0.25;
     const max = parseFloat(map.dataset.maxZoom ?? "4") || 4;
     const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
+    /** How far out the reader may zoom. Lowered by `measure` -- see below. */
+    let min = declaredMin;
+
     /**
-     * Scale that fits the image to the viewport.
+     * The scale that shows the whole image, and the floor for zooming out.
      *
      * The world is sized in the image's natural pixels, matching the plugin,
      * where `scale: 1` is 100% of the source. So the *starting* scale has to
      * be computed rather than assumed to be 1 -- Tambler is 2048px wide in a
      * ~700px column, and starting at 1 would drop the reader into a corner of
      * the map at full magnification.
+     *
+     * The floor moves with the container, which is the non-obvious part.
+     * `minZoom` is chosen in Obsidian against the width the fence declares:
+     * Kenorland's 0.24 is just enough to fit 2751px into 678px, and not a
+     * digit more. Once the figure is allowed to shrink below that width, an
+     * author's floor taken literally sits *above* the fit, so the reader
+     * opens on a crop of the map and neither the minus button nor reset can
+     * show them the rest of it. A floor meant to stop someone zooming out
+     * into empty space should never stop them zooming out to the map itself.
      */
-    function fitScale() {
+    function measure() {
       const box = viewport.getBoundingClientRect();
       if (!world.offsetWidth || !box.width) return 1;
-      return clamp(box.width / world.offsetWidth, min, max);
+      const fit = box.width / world.offsetWidth;
+      min = Math.min(declaredMin, fit);
+      return fit;
+    }
+
+    function fitScale() {
+      return clamp(measure(), min, max);
     }
 
     const state: State = { scale: fitScale(), x: 0, y: 0 };
@@ -180,12 +198,40 @@ import "../styles/zoommap.css";
       });
     });
 
+    /**
+     * Which version of the map is showing.
+     *
+     * Every base is already in the DOM, stacked in one grid cell, so this
+     * only flips which one is visible. Deliberately touches nothing else:
+     * the world's transform, the reader's pan and zoom, and the pins all
+     * stay exactly where they were, which is the whole point of switching
+     * the base rather than swapping maps.
+     */
+    const bases = [...map.querySelectorAll<HTMLImageElement>(".zoommap-base")];
+    const choices = [...map.querySelectorAll<HTMLButtonElement>(".zoommap-base-btn")];
+
+    if (bases.length > 1 && choices.length === bases.length) {
+      choices.forEach((choice, index) => {
+        choice.addEventListener("click", () => {
+          bases.forEach((image, i) => image.toggleAttribute("hidden", i !== index));
+          choices.forEach((other, i) => {
+            other.classList.toggle("is-active", i === index);
+            other.setAttribute("aria-pressed", String(i === index));
+          });
+        });
+      });
+    }
+
     constrain();
     apply();
 
     // Refit on resize, but only while the reader has not zoomed themselves --
     // otherwise a window resize would throw away where they were looking.
     window.addEventListener("resize", () => {
+      // The floor is re-measured either way: a reader who has zoomed in and
+      // then narrowed the window still deserves to be able to zoom back out
+      // to the whole map.
+      measure();
       if (!atFit) return;
       state.scale = fitScale();
       state.x = 0;

@@ -244,6 +244,22 @@ class Report:
                 lines.append(f"      {warning}")
             lines.append("")
 
+        # Module warnings: things a module noticed about the run as a whole
+        # rather than about one note. These were collected by
+        # `TransformModule.warn` and, until this existed, printed nowhere at
+        # all -- nineteen call sites writing to a list the report never read.
+        # `image_licensing` had already worked around it by building a
+        # `section()` instead, with a comment saying why; the cost of leaving
+        # it was a map that silently dropped a marker type for a month.
+        module_warnings = [
+            (stat.name, warning) for stat in self.module_stats for warning in stat.warnings
+        ]
+        if module_warnings:
+            lines.append(f"Module warnings ({len(module_warnings)})")
+            for name, warning in self._limit(module_warnings, limit):
+                lines.append(f"  [{name}] {warning}")
+            lines.append("")
+
         if lines and not verbose:
             lines.append("  (use --verbose for full lists)")
         return [line for line in lines if line != ""] or []

@@ -35,6 +35,20 @@ class Icon:
     anchor_y: float = 12
 
 
+@dataclass(frozen=True)
+class Base:
+    """One version of the same map: a physical sheet, a political one.
+
+    `name` is what the fence calls it, in the vault's own language -- the
+    plugin shows this string in its own UI, so it is Spanish like everything
+    else there. The site translates it through the shared table's `values:`
+    vocabulary; see `modules/zoommap.py`.
+    """
+
+    path: str  # vault-relative
+    name: str = ""
+
+
 @dataclass
 class Marker:
     x: float  # normalised 0-1 across the image
@@ -49,7 +63,11 @@ class Marker:
 class MapSpec:
     """One resolved map, ready to render."""
 
-    image_path: str  # vault-relative
+    #: Every base the fence declares, in the order it declares them. The
+    #: first is what the map opens on -- not the markers file's `activeBase`,
+    #: which is where the author last left the editor rather than what the
+    #: note means to show. Same call as the infobox gallery's default image.
+    bases: list[Base]
     width: int
     height: int
     markers: list[Marker] = field(default_factory=list)
@@ -121,6 +139,12 @@ def load_markers(vault_path: str, config: Config) -> tuple[list[Marker], int, in
     skipped: dict[str, int] = {}
     for entry in data.get("markers", ()):
         kind = str(entry.get("type", "pin"))
+        if kind == "switch":
+            # Not unsupported -- superseded. In Obsidian the only way to offer
+            # a base switch is a pin pinned to the viewport; here the map has
+            # a control strip of its own, so the pin would be a second way to
+            # do what a labelled button already does, and a wordless one.
+            continue
         if kind != "pin":
             skipped[kind] = skipped.get(kind, 0) + 1
             continue
@@ -149,14 +173,22 @@ def load_markers(vault_path: str, config: Config) -> tuple[list[Marker], int, in
 
 def build(fence: dict[str, Any], config: Config) -> MapSpec:
     """Turn a parsed fence into a fully resolved `MapSpec`."""
-    bases = fence.get("imageBases") or []
-    if not bases:
+    raw_bases = fence.get("imageBases") or []
+    if not raw_bases:
         raise ZoommapError("fence has no `imageBases`")
 
-    first = bases[0]
-    image_path = str(first.get("path") if isinstance(first, dict) else first).strip()
-    if not image_path:
-        raise ZoommapError("first `imageBases` entry has no path")
+    bases: list[Base] = []
+    for entry in raw_bases:
+        if isinstance(entry, dict):
+            path = str(entry.get("path") or "").strip()
+            name = str(entry.get("name") or "").strip()
+        else:
+            path, name = str(entry).strip(), ""
+        if path:
+            bases.append(Base(path=path, name=name))
+
+    if not bases:
+        raise ZoommapError("no `imageBases` entry has a path")
 
     markers_path = str(fence.get("markers") or "").strip()
     markers: list[Marker] = []
@@ -170,7 +202,7 @@ def build(fence: dict[str, Any], config: Config) -> MapSpec:
         markers = [m for m in markers if m.layer.casefold() in layers]
 
     return MapSpec(
-        image_path=image_path,
+        bases=bases,
         width=width,
         height=height,
         markers=markers,

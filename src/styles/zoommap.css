@@ -8,6 +8,14 @@
 .zoommap {
   position: relative;
   margin: 1.5rem 0;
+  /* The fence declares the size the author wants; this makes it the size the
+     author wants *at most*. A map pinned to 678px in a 400px column used to
+     become a sideways-scrolling strip, because the theme gives `main` an
+     `overflow-x: auto` that quietly absorbed the overflow. The parser emits
+     the declared box as a width plus an aspect-ratio rather than a width plus
+     a height, so shrinking the width here takes the height down with it
+     instead of letterboxing the map inside a height it can no longer fill. */
+  max-width: 100%;
   border: 1px solid var(--background-modifier-border, #ddd);
   border-radius: var(--radius-m, 8px);
   background: var(--background-secondary, #f3f3f3);
@@ -27,20 +35,38 @@
 }
 
 /* Sized in the image's natural pixels by the parser, so `--zm-scale` means the
-   same thing it does in the plugin: 1 is 100% of the source image. */
+   same thing it does in the plugin: 1 is 100% of the source image.
+
+   A grid, so that a map with more than one base can stack them in the same
+   cell. Absolute positioning would do it too, but only while the world has an
+   explicit size -- a fence with no markers file has none, and the bases are
+   what give it one. Pins are `position: absolute`, so they are out of grid
+   flow and unaffected. */
 .zoommap-world {
   position: relative;
+  display: grid;
   transform-origin: 0 0;
   /* Set by the script; the default keeps the map usable before it runs. */
   transform: translate(var(--zm-x, 0px), var(--zm-y, 0px)) scale(var(--zm-scale, 1));
 }
 
 .zoommap-base {
+  grid-area: 1 / 1;
   display: block;
   width: 100%;
   height: auto;
   user-select: none;
   -webkit-user-drag: none;
+}
+
+/* Not redundant with the `hidden` attribute, however much it looks it. An
+   author `display` beats the UA stylesheet's `[hidden] { display: none }`
+   whatever the specificity, so the rule above kept every base painted and
+   the last one in the markup won: the switch flipped the attribute, the
+   script was correct, and the reader saw the political map and nothing ever
+   changed. Same shape as the gallery's clear button. */
+.zoommap-base[hidden] {
+  display: none;
 }
 
 /* Pins sit at a percentage of the image, so they track the terrain as the
@@ -116,6 +142,75 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
+}
+
+/* ── Which version of the map ────────────────────────────────────────────
+ *
+ * Only on the maps that have more than one base. Top-left, which is where
+ * the author placed the switch pin in Obsidian, and shaped like the language
+ * switcher rather than like the zoom buttons: this is a choice between named
+ * things, not a repeated nudge, and the names are the whole point of it.
+ *
+ * Outside `.zoommap-viewport`, so pressing a button cannot be mistaken for
+ * the start of a pan. */
+.zoommap-bases {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  background: var(--background-secondary-alt, var(--background-secondary, #efe7d9));
+  border: 1px solid var(--background-modifier-border, #d8ccbc);
+  border-radius: 7px;
+  box-shadow: 0 2px 6px -2px var(--background-modifier-box-shadow, rgb(0 0 0 / 25%));
+}
+
+.zoommap-base-btn {
+  padding: 3px 10px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted, #6b6862);
+  /* The same stack the language pills use: a Japanese label would otherwise
+     be the only Japanese on a page read in Spanish, and would pull down the
+     whole content face to set three glyphs. */
+  font-family: "Noto Sans JP UI", var(--font-default);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  transition:
+    color 0.12s ease,
+    background 0.12s ease;
+}
+
+.zoommap-base-btn:hover:not(.is-active) {
+  color: var(--text-normal, #1a1a1a);
+  background: var(--background-modifier-hover, rgb(0 0 0 / 5%));
+}
+
+.zoommap-base-btn.is-active {
+  color: var(--text-normal, #1a1a1a);
+  background: var(--background-primary, #fff);
+  font-weight: 600;
+  box-shadow:
+    0 1px 4px rgb(0 0 0 / 14%),
+    0 0 0 0.5px rgb(0 0 0 / 7%);
+}
+
+.zoommap-base-btn:focus-visible {
+  outline: 2px solid var(--text-accent, #a33);
+  outline-offset: 1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .zoommap-base-btn {
+    transition: none;
+  }
 }
 
 .zoommap-btn {
