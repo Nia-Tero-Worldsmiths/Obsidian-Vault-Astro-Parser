@@ -77,6 +77,13 @@ export const GET: APIRoute = async () => {
       breadcrumb: entry.data.breadcrumb,
       vaultPath: entry.data.vaultPath,
       isFolderNote: entry.data.isFolderNote,
+      /* The vault's own `NoteType`, trimmed and otherwise verbatim: a
+       * consumer that groups notes by kind should see what an author wrote,
+       * not a normalised guess. Null when the note declares none. */
+      noteType:
+        typeof entry.data.NoteType === "string" && entry.data.NoteType.trim()
+          ? entry.data.NoteType.trim()
+          : null,
       /* Absent means monolingual in the default language -- the same
        * convention the note schema documents. Spelled out here so a consumer
        * never has to know that. */
